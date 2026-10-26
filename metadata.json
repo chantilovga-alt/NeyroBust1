@@ -1,0 +1,6 @@
+{
+  "name": "NeuroBoost: @DonDearOfficina Telegram Bot & Medical System",
+  "description": "Моноприложение Telegram-бот (aiogram 3.x, PostgreSQL 15+, Python 3.11) для авторской схемы буста нервной системы от @DonDearOfficina: 8 разделов, консоли специалиста и владельца, база препаратов и симулятор бота.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
