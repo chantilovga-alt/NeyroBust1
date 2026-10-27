@@ -174,14 +174,13 @@ export function startTelegramBot(
   async function registerCommands() {
     await apiCall('setMyCommands', {
       commands: [
-        { command: 'start', description: '🏠 Главное меню' },
-        { command: 'course', description: '🎯 Начать авторский курс' },
+        { command: 'start', description: '🎯 Начать авторский курс и главное меню' },
+        { command: 'course', description: '🎯 Программа курса (3 последовательных этапа)' },
         { command: 'auxiliary', description: '📦 Вспомогательные препараты и БАДы' },
-        { command: 'workout', description: '🏋️ Система тренировок с ногами' },
+        { command: 'workout', description: '🏋️ Система тренировок (приседы в отказ, икры)' },
+        { command: 'assistant', description: '🤖 AI-Ассистент (@DonDearOfficina)' },
         { command: 'knowledge', description: '📚 База знаний' },
         { command: 'islamic', description: '🕌 Исламская медицина' },
-        { command: 'assistant', description: '🤖 Супер-Ассистент' },
-        { command: 'app', description: '📱 Открыть Mini App' },
         { command: 'profile', description: '👤 Мой профиль' },
         { command: 'dondear', description: '📩 Связаться с @DonDearOfficina' },
       ],
@@ -217,9 +216,6 @@ export function startTelegramBot(
         [
           { text: '🕌 Исламская медицина', callback_data: 'nav_islamic' },
           { text: '🤖 Супер-Ассистент', callback_data: 'nav_assistant' },
-        ],
-        [
-          { text: '📱 Открыть NeuroBoost Mini App', web_app: { url: appUrl } },
         ],
         [
           { text: '👤 Мой профиль', callback_data: 'nav_profile' },
@@ -1151,15 +1147,8 @@ export function startTelegramBot(
                 const view = getAuxiliaryCatalogView();
                 await sendMessage(chatId, view.text, view.keyboard);
               } else if (text === '/app') {
-                await sendMessage(
-                  chatId,
-                  'Нажмите кнопку ниже для запуска полноэкранного Telegram Mini App:',
-                  {
-                    inline_keyboard: [
-                      [{ text: '💊 Открыть NeuroBoost Mini App', web_app: { url: appUrl } }],
-                    ],
-                  }
-                );
+                const view = getMainMenuView(userId);
+                await sendMessage(chatId, view.text, view.keyboard);
               } else if (text === '/workout') {
                 const view = getWorkoutView(userId);
                 await sendMessage(chatId, view.text, view.keyboard);

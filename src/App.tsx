@@ -9,11 +9,9 @@ import {
   Users,
   ChevronDown,
   ExternalLink,
-  Smartphone,
 } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { TelegramBotSimulator } from './components/TelegramBotSimulator';
-import { TelegramMiniApp } from './components/TelegramMiniApp';
 import { SpecialistConsole } from './components/SpecialistConsole';
 import { OwnerConsole } from './components/OwnerConsole';
 import { CodebaseExplorer } from './components/CodebaseExplorer';
@@ -58,21 +56,6 @@ const MainLayout: React.FC = () => {
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>Симулятор бота @DonDearOfficinaAI</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('miniapp')}
-              className={`px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition relative ${
-                activeTab === 'miniapp'
-                  ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Telegram Mini App</span>
-              <span className="px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 rounded border border-cyan-500/30">
-                TMA
-              </span>
             </button>
 
             <button
@@ -170,14 +153,6 @@ const MainLayout: React.FC = () => {
             Бот
           </button>
           <button
-            onClick={() => setActiveTab('miniapp')}
-            className={`px-3 py-1 rounded-lg whitespace-nowrap flex items-center gap-1 ${
-              activeTab === 'miniapp' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400'
-            }`}
-          >
-            <span>📱 Mini App</span>
-          </button>
-          <button
             onClick={() => setActiveTab('specialist_console')}
             className={`px-3 py-1 rounded-lg whitespace-nowrap ${
               activeTab === 'specialist_console' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400'
@@ -215,7 +190,6 @@ const MainLayout: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         {activeTab === 'bot' && <TelegramBotSimulator />}
-        {activeTab === 'miniapp' && <TelegramMiniApp />}
         {activeTab === 'specialist_console' && <SpecialistConsole />}
         {activeTab === 'owner_console' && <OwnerConsole />}
         {activeTab === 'codebase' && <CodebaseExplorer />}

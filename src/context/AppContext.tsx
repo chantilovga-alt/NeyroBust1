@@ -37,8 +37,8 @@ import { DRUG_INTERACTIONS_MATRIX, RED_FLAGS_KEYWORDS } from '../data/scientific
 
 interface AppContextType {
   // Navigation
-  activeTab: 'bot' | 'miniapp' | 'specialist_console' | 'owner_console' | 'codebase' | 'architecture';
-  setActiveTab: (tab: 'bot' | 'miniapp' | 'specialist_console' | 'owner_console' | 'codebase' | 'architecture') => void;
+  activeTab: 'bot' | 'specialist_console' | 'owner_console' | 'codebase' | 'architecture';
+  setActiveTab: (tab: 'bot' | 'specialist_console' | 'owner_console' | 'codebase' | 'architecture') => void;
 
   // Active persona
   currentUser: User;
@@ -128,7 +128,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<'bot' | 'miniapp' | 'specialist_console' | 'owner_console' | 'codebase' | 'architecture'>('bot');
+  const [activeTab, setActiveTab] = useState<'bot' | 'specialist_console' | 'owner_console' | 'codebase' | 'architecture'>('bot');
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [currentUserId, setCurrentUserId] = useState<number>(4); // Default to Alex (Patient)
 

@@ -1,0 +1,6 @@
+{
+  "summary":  "План пересборки Telegram-бота @DonDearOfficina_bot с токеном 8786941443:AAGpgiMyD1tBW5NhluhDf0KmKsczag2D7QI, интеграцией 24/7 Anti-Sleep (двойной keep-alive пинг и Railway healthcheck), чистым git-репозиторием и терминальными командами для публикации на GitHub и Railway.",
+  "updatedAt":  "2026-10-27T20:33:25.068466322Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
