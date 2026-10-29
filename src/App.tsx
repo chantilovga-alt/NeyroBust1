@@ -2,21 +2,15 @@ import React from 'react';
 import {
   MessageSquare,
   Stethoscope,
-  ShieldAlert,
-  FileCode,
   Layers,
-  Sparkles,
-  Users,
-  ChevronDown,
-  ExternalLink,
+  FileCode,
 } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { TelegramBotSimulator } from './components/TelegramBotSimulator';
 import { SpecialistConsole } from './components/SpecialistConsole';
 import { OwnerConsole } from './components/OwnerConsole';
-import { CodebaseExplorer } from './components/CodebaseExplorer';
 import { ArchitectureDocs } from './components/ArchitectureDocs';
-import { UserRole } from './types';
+import { CodebaseExplorer } from './components/CodebaseExplorer';
 
 const MainLayout: React.FC = () => {
   const { activeTab, setActiveTab, currentUser, switchUser } = useApp();
@@ -35,11 +29,11 @@ const MainLayout: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm tracking-tight text-white">NeuroBoost</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800/40">
-                  aiogram 3.x • PG15+
+                  TypeScript • Node.js • Express • Persistent Storage
                 </span>
               </div>
               <p className="text-[11px] text-cyan-400 font-medium">
-                Личный опыт, разбор открытых данных • @DonDearOfficinaAI
+                Личный опыт, разбор открытых данных • @DonDearOfficina
               </p>
             </div>
           </div>
@@ -55,7 +49,7 @@ const MainLayout: React.FC = () => {
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>Симулятор бота @DonDearOfficinaAI</span>
+              <span>Симулятор бота</span>
             </button>
 
             <button
@@ -83,18 +77,6 @@ const MainLayout: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('codebase')}
-              className={`px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
-                activeTab === 'codebase'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <FileCode className="w-3.5 h-3.5" />
-              <span>Код Python 3.11</span>
-            </button>
-
-            <button
               onClick={() => setActiveTab('architecture')}
               className={`px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
                 activeTab === 'architecture'
@@ -103,11 +85,23 @@ const MainLayout: React.FC = () => {
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Архитектура</span>
+              <span>Архитектура & Статус</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('codebase')}
+              className={`px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition ${
+                activeTab === 'codebase'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FileCode className="w-3.5 h-3.5" />
+              <span>Архив прототипа</span>
             </button>
           </nav>
 
-          {/* Quick Persona Switcher for Reviewer Convenience */}
+          {/* Persona Switcher */}
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-500 hidden sm:inline">Роль:</span>
             <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/80">
@@ -169,20 +163,20 @@ const MainLayout: React.FC = () => {
             Владелец
           </button>
           <button
-            onClick={() => setActiveTab('codebase')}
-            className={`px-3 py-1 rounded-lg whitespace-nowrap ${
-              activeTab === 'codebase' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400'
-            }`}
-          >
-            Python 3.11 Код
-          </button>
-          <button
             onClick={() => setActiveTab('architecture')}
             className={`px-3 py-1 rounded-lg whitespace-nowrap ${
               activeTab === 'architecture' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400'
             }`}
           >
             Архитектура
+          </button>
+          <button
+            onClick={() => setActiveTab('codebase')}
+            className={`px-3 py-1 rounded-lg whitespace-nowrap ${
+              activeTab === 'codebase' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400'
+            }`}
+          >
+            Архив
           </button>
         </div>
       </header>
@@ -192,18 +186,18 @@ const MainLayout: React.FC = () => {
         {activeTab === 'bot' && <TelegramBotSimulator />}
         {activeTab === 'specialist_console' && <SpecialistConsole />}
         {activeTab === 'owner_console' && <OwnerConsole />}
-        {activeTab === 'codebase' && <CodebaseExplorer />}
         {activeTab === 'architecture' && <ArchitectureDocs />}
+        {activeTab === 'codebase' && <CodebaseExplorer />}
       </main>
 
       {/* Footer */}
       <footer className="bg-slate-900/60 border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
-            NeuroBoost System • Личный опыт, разбор открытых данных • Telegram-бот: <b>@DonDearOfficinaAI</b>
+            NeuroBoost System • Личный опыт, разбор открытых данных • Telegram-бот: <b>@DonDearOfficina_bot</b> • Автор: <b>@DonDearOfficina</b>
           </span>
           <span className="text-[11px] text-slate-500">
-            Стек: Python 3.11 • aiogram 3.x • PostgreSQL 15+ • SQLAlchemy 2.0 • Redis
+            Стек: TypeScript • Node.js • Express • Persistent Storage
           </span>
         </div>
       </footer>

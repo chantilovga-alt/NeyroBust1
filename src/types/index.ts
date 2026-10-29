@@ -136,6 +136,7 @@ export interface Medication {
   precautions?: string; // 6. Ограничения и предостережения
   relation_to_main_course?: string; // 7. Связь с основным курсом
   is_main_course?: boolean; // Входит ли в основной 4-месячный авторский курс
+  search_aliases?: string[]; // Невидимые поисковые алиасы (латиница, опечатки, старые варианты)
   created_at: string;
   updated_at: string;
   archived_at?: string;

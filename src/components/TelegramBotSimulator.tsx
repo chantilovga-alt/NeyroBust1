@@ -4,24 +4,21 @@ import {
   RotateCcw,
   AlertTriangle,
   ShieldCheck,
-  Sparkles,
   ChevronRight,
-  CheckCircle2,
-  Copy,
-  Check,
   BookOpen,
   Pill,
   Award,
-  Bot,
-  MessageSquare,
-  Search,
   ExternalLink,
   Dumbbell,
   Activity,
   Flame,
+  Scale,
+  Droplets,
+  User,
+  HeartHandshake,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { IslamicRemedy, KnowledgeNote, Medication, WorkoutExercise } from '../types';
+import { KnowledgeNote, Medication } from '../types';
 
 interface BotMessage {
   id: string;
@@ -32,6 +29,25 @@ interface BotMessage {
   isRedFlag?: boolean;
 }
 
+const RED_FLAGS = [
+  'острая боль',
+  'черный стул',
+  'мелена',
+  'рвота с кровью',
+  'потеря сознания',
+  'давление 180',
+  'давление 200',
+  'загрудинная боль',
+  'боль в груди',
+  'онемение половины лица',
+  'слабость в руке',
+  'спутанность сознания',
+  'судороги',
+  'задержка мочи',
+  'отек горла',
+  'удушье',
+];
+
 export const TelegramBotSimulator: React.FC = () => {
   const {
     currentUser,
@@ -39,30 +55,26 @@ export const TelegramBotSimulator: React.FC = () => {
     islamicRemedies,
     knowledgeNotes,
     workoutExercises,
-    workoutPhilosophy,
     toggleWorkoutExercise,
     toggleAuthorProtocol,
-    grantConsent,
-    revokeConsent,
-    lastAssistantSummary,
-    setLastAssistantSummary,
-    queryAssistant,
-    checkRedFlags,
     consumeInvite,
     triggerFunnel,
     funnelStages,
     funnelTriggers,
-    funnelLeads,
     advanceFunnelStep,
+    funnelLeads,
   } = useApp();
 
   const [simChannel, setSimChannel] = useState<'telegram' | 'instagram'>('telegram');
   const [messages, setMessages] = useState<BotMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [activeSubView, setActiveSubView] = useState<string>('idle');
-  const [copiedSummary, setCopiedSummary] = useState(false);
-  const [knowledgeSearchQuery, setKnowledgeSearchQuery] = useState('');
+  const [weightInput, setWeightInput] = useState('');
+  const [weightList, setWeightList] = useState<Array<{ date: string; weight: number }>>([
+    { date: '29.10.2026', weight: 81.2 },
+    { date: '22.10.2026', weight: 82.0 },
+    { date: '15.10.2026', weight: 82.8 },
+  ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Instagram Direct Messages State
@@ -84,20 +96,20 @@ export const TelegramBotSimulator: React.FC = () => {
     {
       id: 'ig-seed-1',
       sender: 'user',
-      text: 'СТЕК',
+      text: 'КУРС',
       timestamp: '11:20',
     },
     {
       id: 'ig-seed-2',
       sender: 'dondear',
-      text: 'Приветствую! На связи @DonDearOfficina — дипломированный провизор.\n\nВы запросили доступ к авторской схеме буста нервной системы (33 препарата и добавки). Ниже ссылка на мгновенное открытие полного протокола:',
+      text: 'Приветствую! На связи @DonDearOfficina — дипломированный провизор-химик.\n\nМатериалы авторского курса доступны в Telegram-боте. Перейдите по ссылке ниже:',
       timestamp: '11:20',
       leadMagnet: {
-        title: '🎁 Авторский протокол буста нервной системы',
-        description: 'Каскадная триада: ЖКТ-фундамент ➔ Холин/Креатин ➔ Мягкая стимуляция. Дозировки, время приема, биомаркеры.',
-        pdfName: 'Авторский_протокол_DonDearOfficina_33_препарата.pdf',
-        ctaText: '🚀 Открыть в Telegram-боте @DonDearOfficinaAI',
-        startArg: 'ig_stack',
+        title: '🎯 Авторский курс оптимизации нейросистемы',
+        description: 'Каскадная триада: ЖКТ и желчеотток ➔ Нейробуст (6+ мес) ➔ Двухмесячный этап с Фенотропилом.',
+        pdfName: 'Авторский_курс_DonDearOfficina.pdf',
+        ctaText: '🚀 Открыть в Telegram @DonDearOfficina_bot',
+        startArg: 'course',
       },
     },
   ]);
@@ -105,23 +117,13 @@ export const TelegramBotSimulator: React.FC = () => {
   const [igIsTyping, setIgIsTyping] = useState(false);
   const igChatEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToIgBottom = () => {
-    igChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    if (simChannel === 'instagram') {
-      scrollToIgBottom();
-    }
-  }, [igMessages, igIsTyping, simChannel]);
-
-  const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages, isTyping]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    igChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [igMessages, igIsTyping]);
 
   const addBotMessage = (
     text: string,
@@ -149,15 +151,19 @@ export const TelegramBotSimulator: React.FC = () => {
     setMessages((prev) => [...prev, newMsg]);
   };
 
-  // Main Menu according to Author's Strict Single-Button Flow
-  const getMainButtons = (): { text: string; action: () => void; variant?: 'default' | 'danger' | 'success' | 'outline' }[] => [
+  // Main Menu Buttons according to User Specifications
+  const getMainButtons = (): {
+    text: string;
+    action: () => void;
+    variant?: 'default' | 'danger' | 'success' | 'outline';
+  }[] => [
     { text: '🎯 Начать авторский курс', action: () => handleSelectSection('author_course'), variant: 'success' },
     { text: '📦 Вспомогательные препараты и БАДы', action: () => handleSelectSection('auxiliary_meds') },
-    { text: '🏋️‍♂️ Система тренировок', action: () => handleSelectSection('workout') },
-    { text: '🤖 Супер-ассистент', action: () => handleSelectSection('assistant') },
-    { text: '📚 База знаний', action: () => handleSelectSection('knowledge') },
-    { text: '📩 Связаться с @DonDearOfficina', action: () => handleSelectSection('dondear') },
-    { text: '⚙️ Профиль', action: () => handleSelectSection('profile') },
+    { text: '⚖️ Похудение и питание', action: () => handleSelectSection('nutrition') },
+    { text: '🏋️ Система тренировок', action: () => handleSelectSection('workout') },
+    { text: '📚 Материалы автора', action: () => handleSelectSection('knowledge') },
+    { text: '👤 Мой профиль и прогресс', action: () => handleSelectSection('profile') },
+    { text: '📩 Задать вопрос автору', action: () => handleSelectSection('dondear'), variant: 'outline' },
   ];
 
   const getBackButton = () => ({
@@ -167,63 +173,49 @@ export const TelegramBotSimulator: React.FC = () => {
   });
 
   const returnToMainMenu = () => {
-    setActiveSubView('idle');
     addUserMessage('◀️ В меню');
-    addBotMessage('🏛 <b>Главное меню @DonDearOfficinaAI</b>\n\n<i>Выберите раздел:</i>', getMainButtons());
+    addBotMessage('🏛 <b>Главное меню @DonDearOfficina_bot</b>\n\n<i>Выберите раздел:</i>', getMainButtons());
   };
 
   const handleStartCommand = (customArgs?: string) => {
     setMessages([]);
-    setActiveSubView('idle');
     addUserMessage(customArgs ? `/start ${customArgs}` : '/start');
     setIsTyping(true);
 
     setTimeout(() => {
       setIsTyping(false);
-      let inviteResult = '';
-      let isInstagramTransition = false;
-      let funnelInfo = '';
+      let contextNote = '';
 
-      if (customArgs && customArgs.startsWith('inv_')) {
-        const raw = customArgs.replace('inv_', '');
-        const res = consumeInvite(raw);
-        inviteResult = res.success ? `\n\n🎉 ${res.message}` : `\n\n⚠️ ${res.message}`;
-      } else if (customArgs && customArgs.startsWith('ig_')) {
-        isInstagramTransition = true;
-        const kw = customArgs.replace('ig_', '').toUpperCase();
-        funnelInfo =
-          `\n\n🚀 <b>ПЕРЕХОД ИЗ INSTAGRAM DIRECT ЗАФИКСИРОВАН!</b>\n` +
-          `Триггер: <code>${kw}</code>. Авторский протокол буста доставлен в сессию.\n\n` +
-          `Автоворонка переведена на <b>Шаг 2: Авторский курс (ЖКТ ➔ Нейробуст ➔ Фенотропил)</b>.`;
-
-        const lead = funnelLeads.find((l) => l.channel === 'instagram');
-        if (lead) {
-          advanceFunnelStep(lead.id);
+      if (customArgs) {
+        const lowerArg = customArgs.toLowerCase();
+        if (lowerArg === 'water' || lowerArg === 'voda' || lowerArg === 'gastro') {
+          renderWaterBalanceHub();
+          return;
+        } else if (lowerArg === 'nutrition' || lowerArg === 'fats' || lowerArg === 'weight') {
+          renderNutritionHub();
+          return;
+        } else if (lowerArg === 'course' || lowerArg === 'stack') {
+          renderAuthorCourseHub();
+          return;
+        } else if (lowerArg.startsWith('inv_')) {
+          const raw = customArgs.replace('inv_', '');
+          const res = consumeInvite(raw);
+          contextNote = res.success ? `\n\n🎉 ${res.message}` : `\n\n⚠️ ${res.message}`;
         }
       }
 
       const welcomeText =
         `👋 Здравствуйте, <b>${currentUser.first_name}</b>!\n\n` +
-        `Добро пожаловать в Telegram-бот <b>@DonDearOfficinaAI</b>.\n` +
-        `Автор системы: <b>@DonDearOfficina</b> (дипломированный провизор).\n\n` +
-        `<b>КОНЦЕПЦИЯ АВТОРСКОГО КУРСА:</b>\n` +
-        `Единая последовательная программа оптимизации нейросистемы строится от первопричины (Cause-First): ` +
-        `<b>ЖКТ и желчеотток</b> ➔ <b>Нейробуст (длительная база 6+ месяцев)</b> ➔ <b>Двухмесячный этап с Фенотропилом</b>.\n\n` +
-        `Все вспомогательные препараты и БАДы вынесены в отдельный обширный каталог.${inviteResult}${funnelInfo}\n\n` +
-        `<i>Нажмите главную кнопку ниже, чтобы начать последовательную программу:</i>`;
+        `Добро пожаловать в Telegram-бот авторского курса дипломированного провизора-химика <b>@DonDearOfficina</b>.\n\n` +
+        `<b>⚙️ Архитектура курса (Cause-First):</b>\n` +
+        `• <b>1-й этап (1-й месяц):</b> ЖКТ, желчеотток и водный баланс\n` +
+        `• <b>2-й этап (со 2-го месяца):</b> Комплекс «Нейробуст» (Глиатилин + Креатин + L-Цитруллин, длительно 6+ месяцев)\n` +
+        `• <b>3-й этап (3-й и 4-й месяцы):</b> Двухмесячный этап с Фенотропилом\n\n` +
+        `<i>Все остальные средства вынесены в каталог «Вспомогательные препараты и БАДы».</i>${contextNote}\n\n` +
+        `По всем индивидуальным вопросам вы можете обратиться лично к автору: <b>@DonDearOfficina</b>.`;
 
-      if (isInstagramTransition) {
-        addBotMessage(welcomeText, [
-          { text: '🎯 Начать авторский курс', action: () => handleSelectSection('author_course'), variant: 'success' },
-          { text: '📦 Вспомогательные препараты и БАДы', action: () => handleSelectSection('auxiliary_meds') },
-          { text: '🏋️‍♂️ Система тренировок (Снятие застоев)', action: () => handleSelectSection('workout') },
-          { text: '🤖 Супер-ассистент (Gemini AI)', action: () => handleSelectSection('assistant') },
-          getBackButton(),
-        ]);
-      } else {
-        addBotMessage(welcomeText, getMainButtons());
-      }
-    }, 350);
+      addBotMessage(welcomeText, getMainButtons());
+    }, 250);
   };
 
   useEffect(() => {
@@ -238,202 +230,158 @@ export const TelegramBotSimulator: React.FC = () => {
     } else if (section === 'auxiliary_meds') {
       addUserMessage('📦 Вспомогательные препараты и БАДы');
       renderAuxiliaryMedsHub();
-    } else if (section === 'assistant') {
-      addUserMessage('🤖 Супер-ассистент');
-      renderSuperAssistantHub();
+    } else if (section === 'nutrition') {
+      addUserMessage('⚖️ Похудение и питание');
+      renderNutritionHub();
     } else if (section === 'knowledge') {
-      addUserMessage('📚 База знаний');
+      addUserMessage('📚 Материалы автора');
       renderKnowledgeNotesHub();
-    } else if (section === 'medications') {
-      addUserMessage('💊 Моя база препаратов');
-      renderMedicationsHub();
     } else if (section === 'workout') {
-      addUserMessage('🏋️‍♂️ Система тренировок');
+      addUserMessage('🏋️ Система тренировок');
       renderWorkoutHub();
-    } else if (section === 'gastro_month1') {
-      addUserMessage('🫄 Этап 1: Настройка ЖКТ');
-      renderCourseStage1();
     } else if (section === 'dondear') {
       addUserMessage('📩 Связаться с @DonDearOfficina');
       renderDonDearContactHub();
     } else if (section === 'profile') {
-      addUserMessage('⚙️ Профиль');
+      addUserMessage('👤 Мой профиль');
       renderProfileHub();
     }
   };
 
-  // =========================================================================
-  // 1. ЕДИНЫЙ РАЗДЕЛ «НАЧАТЬ АВТОРСКИЙ КУРС» (3 ПОСЛЕДОВАТЕЛЬНЫХ ЭТАПА)
-  // =========================================================================
+  // 1. АВТОРСКИЙ КУРС
   const renderAuthorCourseHub = () => {
+    const isStarted = currentUser.on_author_protocol;
+    const startStatus = isStarted
+      ? '✅ <b>Авторский курс начат!</b>\n<i>Текущий этап: Месяц 1 (ЖКТ и желчеотток)</i>\n\n'
+      : 'ℹ️ <i>Вы находитесь в режиме изучения программы. Ознакомьтесь с этапами ниже. Для фиксации участия нажмите кнопку «Подтвердить начало курса».</i>\n\n';
+
     const text =
       `<b>🎯 АВТОРСКИЙ КУРС @DonDearOfficina</b>\n` +
       `<i>Единая последовательная программа оптимизации нейросистемы</i>\n\n` +
-      `Курс строится строго по каскадному принципу Cause-First:\n\n` +
-      `<b>1️⃣ Первый месяц — «Настройка ЖКТ и желчеоттока»</b>\n` +
-      `• <i>Компоненты:</i> Хофитол, Полисорб (минимум 3 недели), Энтерол.\n` +
-      `• <i>Альтернатива при камнях:</i> Урсосан (УДХК) — строго по УЗИ ОБП, не универсально.\n` +
-      `• <i>Цель:</i> Запуск желчеоттока, эмульгация липидов, ликвидация эндотоксикоза и укрепление кишечного барьера.\n\n` +
-      `<b>2️⃣ Второй месяц — «Подключение Нейробуста и основных компонентов»</b>\n` +
-      `• <i>Компоненты:</i> Нейробуст, L-Цитруллин, Креатин, Глиатилин (холина альфосцерат).\n` +
-      `• <b>ВАЖНО:</b> Цитруллин, Креатин и Глиатилин принимаются <b>минимум 6 месяцев</b> (от 6 до 12 месяцев)! Второй месяц обозначает точку их подключения, а не окончания!\n` +
-      `• <i>Цель:</i> Насыщение пула ацетилхолина, энергетическая буферизация АТФ и эндотелиальный оксид азота.\n\n` +
-      `<b>3️⃣ Третий и четвёртый месяцы — «Двухмесячный этап с Фенотропилом»</b>\n` +
-      `• <i>Компоненты:</i> Фенотропил (Фонтурацетам).\n` +
-      `• <i>Продолжительность этапа:</i> <b>Ровно 2 месяца</b> (3-й месяц — начало, 4-й месяц — продолжение).\n` +
-      `• <i>Связка:</i> Принимается СТРОГО на фоне продолжающегося приема компонентов 2-го месяца (Глиатилин, Креатин, Цитруллин)!\n\n` +
-      `<i>Выберите этап ниже для подробного изучения регламента, инструкций и личного опыта автора:</i>`;
+      `${startStatus}` +
+      `<b>1️⃣ Первый месяц — ЖКТ, желчеотток и водный баланс</b>\n` +
+      `• Хофитол, Полисорб МП (минимум 3 недели), Энтерол.\n` +
+      `• Водный баланс и электролиты (Регидрон, Адиарин Регидрокомплекс по показаниям дегидратации).\n` +
+      `• Урсосан — альтернатива Хофитолу при конкрементах (строго с врачом по УЗИ).\n\n` +
+      `<b>2️⃣ Со второго месяца — Комплекс «Нейробуст» (длительно 6+ месяцев)</b>\n` +
+      `• Глиатилин + Креатин + L-Цитруллин.\n` +
+      `• «Нейробуст» — это название связки этих трех молекул, а не 4-й препарат! Прием продолжается <b>не менее 6 месяцев</b> (месяцы 2–7+).\n\n` +
+      `<b>3️⃣ С третьего месяца — Двухмесячный этап с Фенотропилом</b>\n` +
+      `• Фенотропил (Фонтурацетам) ровно 2 месяца (3-й и 4-й месяцы курса).\n` +
+      `• Базовый прием компонентов 2-го месяца продолжается параллельно!\n\n` +
+      `<i>После курса: опции Пирацетам ➔ далее Ноопепт (вне базового курса).</i>`;
+
+    const confirmButton = isStarted
+      ? { text: '👤 Мой прогресс по курсу', action: () => renderProfileHub(), variant: 'default' as const }
+      : {
+          text: '✅ Подтвердить начало авторского курса',
+          action: () => {
+            toggleAuthorProtocol();
+            addUserMessage('✅ Подтвердить начало авторского курса');
+            addBotMessage(
+              '🎉 <b>Начало авторского курса подтверждено!</b>\n\n' +
+                'Ваш статус обновлен. Чек-листы и этапы зафиксированы в вашем профиле.',
+              [
+                { text: '🫄 Перейти к Этапу 1 (ЖКТ)', action: () => renderCourseStage1(), variant: 'success' },
+                getBackButton(),
+              ]
+            );
+          },
+          variant: 'success' as const,
+        };
 
     addBotMessage(text, [
-      { text: '🫄 Этап 1: Настройка ЖКТ и желчеоттока (1-й мес)', action: () => renderCourseStage1(), variant: 'success' },
-      { text: '🧠 Этап 2: Подключение Нейробуста (2-й мес, 6+ мес)', action: () => renderCourseStage2() },
-      { text: '⚡ Этап 3: Этап с Фенотропилом (3-й и 4-й мес)', action: () => renderCourseStage3() },
+      confirmButton,
+      { text: '🫄 Этап 1: ЖКТ и желчеотток (1-й мес)', action: () => renderCourseStage1() },
+      { text: '💧 Водный баланс и электролиты', action: () => renderWaterBalanceHub() },
+      { text: '🧠 Этап 2: Комплекс «Нейробуст» (6+ мес)', action: () => renderCourseStage2() },
+      { text: '⚡ Этап 3: Фенотропил (3-й и 4-й мес)', action: () => renderCourseStage3() },
       { text: '🔄 Схема-таймлайн курса', action: () => renderCourseTimeline() },
-      { text: '📦 Вспомогательные препараты и БАДы', action: () => renderAuxiliaryMedsHub() },
       getBackButton(),
     ]);
   };
 
   const renderCourseStage1 = () => {
-    addUserMessage('🫄 Этап 1: Настройка ЖКТ и желчеоттока');
+    addUserMessage('🫄 Этап 1: ЖКТ и желчеотток');
     const text =
-      `<b>🫄 ЭТАП 1: НАСТРОЙКА ЖКТ И ЖЕЛЧЕОТТОКА (1-Й МЕСЯЦ)</b>\n\n` +
-      `<b>Основная концепция этапа:</b>\n` +
-      `Без работающего ЖКТ все расчеты по ноотропам и микронутриентам бессмысленны. Если нарушен отток желчи, жирорастворимые молекулы транзитируются, а бактериальный эндотоксин (ЛПС) вызывает системное нейровоспаление.\n\n` +
-      `<b>📋 Базовый авторский стек:</b>\n\n` +
-      `1. <b>ХОФИТОЛ</b> (экстракт листьев артишока)\n` +
-      `• <i>По инструкции производителя:</i> 2–3 таб. 3 раза в сутки перед едой, курс 2–3 недели.\n` +
-      `• <i>Личный опыт автора:</i> 2 таблетки 3 раза в день строго за 20 мин до еды курсом 20–30 дней.\n` +
-      `• <i>Ограничения:</i> Обязательно исключить камни по УЗИ ОБП (риск обтурации протока).\n\n` +
-      `2. <b>ПОЛИСОРБ МП</b> (коллоидный диоксид кремния)\n` +
-      `• <i>По инструкции производителя:</i> водная суспензия за 1–1.5 часа до/после еды и лекарств.\n` +
-      `• <i>Личный опыт автора:</i> <b>применяется в авторской концепции минимум три недели</b> для глубокого снижения токсической нагрузки.\n` +
-      `• <i>Ограничения:</i> Разносить по времени с другими препаратами на 1.5–2 часа!\n\n` +
-      `3. <b>ЭНТЕРОЛ</b> (Saccharomyces boulardii CNCM I-745)\n` +
-      `• <i>По инструкции производителя:</i> 1–2 капс. 2 раза в сутки за 1 час до еды, курс 7–30 дней.\n` +
-      `• <i>Личный опыт автора:</i> 250 мг 2 раза в день за 1 час до еды (14–30 дней).\n` +
-      `• <i>Назначение:</i> Укрепление плотных контактов энтероцитов (tight junctions).\n\n` +
-      `<b>⚠️ Предусмотренная автором альтернатива при камнях:</b>\n` +
-      `• <b>Урсосан (УДХК):</b> предусмотрен автором как <i>альтернатива Хофитолу при наличии конкрементов в желчном пузыре</i>. <b>Не является универсальной рекомендацией для всех пациентов</b>, требует контроля УЗИ ОБП и врача!\n\n` +
-      `<i>Из базового стека исключены Ребагит, Креон 10 000 и Омез ДСР (они перенесены во вспомогательный раздел).</i>`;
+      `<b>🫄 ЭТАП 1: ЖКТ, ЖЕЛЧЕОТТОК И ФУНДАМЕНТ ВСАСЫВАНИЯ (1-Й МЕСЯЦ)</b>\n\n` +
+      `<b>Концепция автора:</b>\n` +
+      `Без работающего ЖКТ все расчеты по ноотропам бессмысленны. Если нарушен отток желчи, жирорастворимые молекулы транзитируются, а эндотоксин вызывает субклиническое нейровоспаление.\n\n` +
+      `<b>📋 Базовый авторский стек:</b>\n` +
+      `1. <b>Хофитол</b> (экстракт артишока) — 2 таб. 3 р/д за 20 мин до еды курсом 20–30 дней.\n` +
+      `2. <b>Полисорб МП</b> — <b>минимум 3 недели</b> (отдельно от еды и Хофитола на 1.5–2 часа).\n` +
+      `3. <b>Энтерол</b> (Saccharomyces boulardii) — 250 мг 2 р/д за 1 час до еды (14–30 дней).\n\n` +
+      `<b>⚠️ Урсосан:</b> альтернатива Хофитолу при камнях в желчном пузыре. Строго обсуждается с лечащим врачом по УЗИ.\n\n` +
+      `<i>Ребагит, Креон и Омез ДСР исключены автором из базового курса.</i>`;
 
     addBotMessage(text, [
-      {
-        text: '🌿 Хофитол (детали)',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('хофитол'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      {
-        text: '🌪️ Полисорб МП (детали)',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('полисорб'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      {
-        text: '🛡️ Энтерол (детали)',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('энтерол'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      {
-        text: '⚠️ Урсосан (альтернатива)',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('урсосан'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      { text: '➡️ Перейти ко 2-му этапу', action: () => renderCourseStage2(), variant: 'success' },
-      { text: '🔙 К обзору курса', action: () => renderAuthorCourseHub() },
+      { text: '🌿 Хофитол', action: () => renderMedCardByName('Хофитол') },
+      { text: '🌪️ Полисорб МП', action: () => renderMedCardByName('Полисорб МП') },
+      { text: '🛡️ Энтерол', action: () => renderMedCardByName('Энтерол') },
+      { text: '💧 Водный баланс и электролиты', action: () => renderWaterBalanceHub(), variant: 'success' },
+      { text: '➡️ Этап 2: Комплекс «Нейробуст»', action: () => renderCourseStage2() },
+      getBackButton(),
+    ]);
+  };
+
+  const renderWaterBalanceHub = () => {
+    addUserMessage('💧 Водный баланс и электролиты');
+    const text =
+      `<b>💧 ВОДНЫЙ БАЛАНС И ЭЛЕКТРОЛИТЫ В КУРСЕ ЖКТ</b>\n\n` +
+      `<b>1. Обычное питье vs Электролиты:</b>\n` +
+      `• Чистая вода — ежедневная базовая потребность. Универсального принудительного объема для всех не существует, объем зависит от массы, нагрузки и климата.\n` +
+      `• Растворы электролитов — соли для направленной компенсации потерь при патологической дегидратации (диарея, рвота, лихорадка, обильный пот).\n\n` +
+      `<b>2. Проверенные средства при дегидратации:</b>\n` +
+      `• <b>Регидрон</b> (лекарственный препарат для пероральной регидратации)\n` +
+      `• <b>Адиарин Регидрокомплекс</b> (гипоосмолярная формула с цинком по стандартам ВОЗ)\n\n` +
+      `<b>🚨 КРАСНЫЕ ФЛАГИ — СРОЧНАЯ ПОМОЩЬ (103 / 112):</b>\n` +
+      `Западение глазных яблок, сухой язык, отсутствие мочеиспускания > 6 часов, спутанность сознания ➔ немедленно вызывайте скорую помощь!\n\n` +
+      `<b>⚠️ Важно:</b> Электролиты НЕ ЯВЛЯЮТСЯ средством для похудения или диуретиком.`;
+
+    addBotMessage(text, [
+      { text: '💧 Карточка: Регидрон', action: () => renderMedCardByName('Регидрон') },
+      { text: '💧 Карточка: Адиарин Регидро', action: () => renderMedCardByName('Адиарин Регидрокомплекс') },
+      { text: '⬅️ Назад к 1-му этапу ЖКТ', action: () => renderCourseStage1() },
       getBackButton(),
     ]);
   };
 
   const renderCourseStage2 = () => {
-    addUserMessage('🧠 Этап 2: Подключение Нейробуста');
+    addUserMessage('🧠 Этап 2: Комплекс «Нейробуст»');
     const text =
-      `<b>🧠 ЭТАП 2: ПОДКЛЮЧЕНИЕ НЕЙРОБУСТА И ОСНОВНЫХ КОМПОНЕНТОВ (2-Й МЕСЯЦ)</b>\n\n` +
-      `<b>Важнейший принцип авторского курса:</b>\n` +
-      `Второй месяц обозначает <b>момент подключения</b> базовых метаболических молекул, а не окончание их приёма! Согласно авторскому замыслу, Цитруллин, Креатин и Глиатилин принимаются <b>МИНИМУМ ШЕСТЬ МЕСЯЦЕВ</b> (от 6 до 12 месяцев) непрерывно.\n\n` +
-      `<b>📋 Компоненты этапа:</b>\n\n` +
-      `1. <b>ГЛИАТИЛИН</b> (холина альфосцерат)\n` +
-      `• <i>Продолжительность:</i> <b>Минимум 6 месяцев</b> (длительный базовый прием).\n` +
-      `• <i>По инструкции:</i> 400 мг 2–3 раза в сутки до еды.\n` +
-      `• <i>Личный опыт автора:</i> 400 мг 2 раза в день за 30 мин до еды в первой половине дня.\n` +
-      `• <i>Зачем в курсе:</i> Субстрат ацетилхолина. Принимается во 2-й месяц СТРОГО ДО стимуляторов, чтобы заблаговременно насытить синапсы.\n\n` +
-      `2. <b>КРЕАТИН МОНОГИДРАТ</b>\n` +
-      `• <i>Продолжительность:</i> <b>Минимум 6 месяцев</b> (постоянный энергетический буфер).\n` +
-      `• <i>По инструкции:</i> 3–5 г в сутки с водой или соком.\n` +
-      `• <i>Личный опыт автора:</i> 5 г каждое утро натощак.\n` +
-      `• <i>Зачем в курсе:</i> Ресинтез АТФ для мозга и поддержка тренировок в отказ.\n\n` +
-      `3. <b>L-ЦИТРУЛЛИН</b>\n` +
-      `• <i>Продолжительность:</i> <b>Минимум 6 месяцев</b> (длительная сосудистая база).\n` +
-      `• <i>По инструкции:</i> 3–6 г в сутки.\n` +
-      `• <i>Личный опыт автора:</i> 3–5 г утром натощак совместно с креатином.\n` +
-      `• <i>Зачем в курсе:</i> Синтез оксида азота (NO), снятие венозного стаза малого таза.\n\n` +
-      `4. <b>НЕЙРОБУСТ (авторский стек)</b>\n` +
-      `• Синергия субстрата (Глиатилин) + энергии (Креатин) + микроциркуляции (Цитруллин).\n\n` +
-      `<i>Этот стек продолжается на 3-м и 4-м месяцах и далее!</i>`;
+      `<b>🧠 ЭТАП 2: КОМПЛЕКС «НЕЙРОБУСТ» (СО 2-ГО МЕСЯЦА, 6+ МЕС)</b>\n\n` +
+      `<b>Ключевой принцип автора:</b>\n` +
+      `«Нейробуст» — это название связки трех компонентов: Глиатилин + Креатин + L-Цитруллин.\n\n` +
+      `Они подключаются со 2-го месяца и принимаются <b>МИНИМУМ ШЕСТЬ МЕСЯЦЕВ</b> (месяцы 2–7+), закладывая устойчивую холинергическую и сосудистую базу!\n\n` +
+      `• <b>Глиатилин</b> (холина альфосцерат) — 400 мг 2 р/д до еды (6+ мес)\n` +
+      `• <b>Креатин моногидрат</b> — 5 г каждое утро натощак (6+ мес)\n` +
+      `• <b>L-Цитруллин</b> — 3–5 г утром натощак (6+ мес)\n\n` +
+      `<i>Эта база продолжается без перерыва на 3-м и 4-м месяцах!</i>`;
 
     addBotMessage(text, [
-      {
-        text: '🧠 Глиатилин (6+ мес)',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('глиатилин'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      {
-        text: '⚡ Креатин (6+ мес)',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('креатин'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      {
-        text: '🩸 L-Цитруллин (6+ мес)',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('цитруллин'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      { text: '⬅️ Этап 1 (ЖКТ)', action: () => renderCourseStage1() },
-      { text: '➡️ Этап 3 (Фенотропил)', action: () => renderCourseStage3(), variant: 'success' },
-      { text: '🔙 К обзору курса', action: () => renderAuthorCourseHub() },
+      { text: '🧠 Глиатилин', action: () => renderMedCardByName('Глиатилин') },
+      { text: '⚡ Креатин моногидрат', action: () => renderMedCardByName('Креатин моногидрат') },
+      { text: '🩸 L-Цитруллин', action: () => renderMedCardByName('L-Цитруллин') },
+      { text: '➡️ Этап 3: Фенотропил', action: () => renderCourseStage3() },
       getBackButton(),
     ]);
   };
 
   const renderCourseStage3 = () => {
-    addUserMessage('⚡ Этап 3: Этап с Фенотропилом');
+    addUserMessage('⚡ Этап 3: Фенотропил');
     const text =
       `<b>⚡ ЭТАП 3: ДВУХМЕСЯЧНЫЙ ЭТАП С ФЕНОТРОПИЛОМ (3-Й И 4-Й МЕСЯЦЫ)</b>\n\n` +
       `На третьем месяце авторского курса подключается Фенотропил.\n\n` +
-      `<b>Регламент этапа:</b>\n` +
-      `• <b>Продолжительность: ровно два месяца</b> (3-й месяц — начало, 4-й месяц — продолжение).\n` +
-      `• Для 4-го месяца не создается отдельный курс — он является прямым продолжением начатого этапа.\n\n` +
-      `<b>📋 ФЕНОТРОПИЛ (Фонтурацетам):</b>\n` +
-      `• <i>По инструкции производителя:</i> разовая доза 100–250 мг, суточная 200–300 мг утром после еды. Длительность курса лечения от 30 дней до 2 месяцев. Не принимать позднее 15:00.\n` +
-      `• <i>Личный опыт автора:</i> 100 мг утром натощак курсом ровно 2 месяца (3-й и 4-й месяцы курса).\n` +
-      `• <b>Ключевое условие безопасности:</b> Фенотропил принимается СТРОГО ПОСЛЕ предшествующего насыщения пула ацетилхолина Глиатилином на 2-м месяце. Стимуляция без холина ведет к истощению синапса!\n\n` +
-      `<b>🔄 Параллельная поддержка:</b>\n` +
-      `Прием Фенотропила идет строго на фоне продолжающегося приема компонентов 2-го месяца (Глиатилин, Креатин, Цитруллин).\n\n` +
-      `<i>После завершения 2-месячного курса Фенотропила возможен плавный переход на более мягкие рацетамы (Пирацетам, Ноопепт) — эти опции подробно описаны во вспомогательном каталоге.</i>`;
+      `• <b>Длительность: ровно 2 месяца</b> (3-й месяц старт, 4-й месяц продолжение).\n` +
+      `• <b>Фенотропил:</b> 100 мг утром натощак курсом ровно 2 месяца.\n` +
+      `• Принимается СТРОГО на фоне продолжающегося приема базы 2-го этапа (Глиатилин, Креатин, Цитруллин)!\n\n` +
+      `<b>📌 Последующие варианты автора:</b>\n` +
+      `После завершения этапа с Фенотропилом автором описана опция: сначала Пирацетам, затем <b>Ноопепт</b>. Они не являются обязательными и вынесены во вспомогательный каталог.`;
 
     addBotMessage(text, [
-      {
-        text: '⚡ Карточка Фенотропила',
-        action: () => {
-          const m = medications.find((x) => x.name.toLowerCase().includes('фенотропил'));
-          if (m) renderSingleMedCard(m);
-        },
-      },
-      { text: '🔄 Схема-таймлайн курса', action: () => renderCourseTimeline() },
-      { text: '📦 Вспомогательный каталог (Ноопепт и др.)', action: () => renderAuxiliaryMedsHub() },
-      { text: '🔙 К обзору курса', action: () => renderAuthorCourseHub() },
+      { text: '💊 Фенотропил (2 мес)', action: () => renderMedCardByName('Фенотропил') },
+      { text: '🔄 Схема-таймлайн', action: () => renderCourseTimeline() },
+      { text: '⬅️ Этап 2 (Нейробуст)', action: () => renderCourseStage2() },
       getBackButton(),
     ]);
   };
@@ -441,815 +389,424 @@ export const TelegramBotSimulator: React.FC = () => {
   const renderCourseTimeline = () => {
     addUserMessage('🔄 Схема-таймлайн курса');
     const text =
-      `<b>🔄 ПОЛНЫЙ ТАЙМЛАЙН АВТОРСКОГО КУРСА (4 МЕСЯЦА + 6+ МЕС)</b>\n\n` +
-      `<code>┌───────────────┬───────────────────────────────────────────┐\n` +
-      `│ МЕСЯЦ         │ ПРЕПАРАТЫ И СОСТОЯНИЕ                     │\n` +
-      `├───────────────┼───────────────────────────────────────────┤\n` +
-      `│ 1-й месяц     │ Хофитол + Полисорб (3+ нед) + Энтерол     │\n` +
-      `│ (ЖКТ-база)    │ [Урсосан — только при камнях по УЗИ]     │\n` +
-      `├───────────────┼───────────────────────────────────────────┤\n` +
-      `│ 2-й месяц     │ СТАРТ: Глиатилин + Креатин + Цитруллин   │\n` +
-      `│ (Нейро-старт) │ [Прием продолжается минимум 6 месяцев!]   │\n` +
-      `├───────────────┼───────────────────────────────────────────┤\n` +
-      `│ 3-й месяц     │ ПОДКЛЮЧЕНИЕ ФЕНОТРОПИЛА (1-й месяц)       │\n` +
-      `│ (Стимуляция)  │ + Глиатилин + Креатин + Цитруллин         │\n` +
-      `├───────────────┼───────────────────────────────────────────┤\n` +
-      `│ 4-й месяц     │ ФЕНОТРОПИЛ (2-й месяц — ФИНАЛ ФЕНОТРОПИЛА)│\n` +
-      `│ (Финал рацетам│ + Глиатилин + Креатин + Цитруллин         │\n` +
-      `├───────────────┼───────────────────────────────────────────┤\n` +
-      `│ 5-й мес и >   │ База продолжается: Глиатилин + Креатин    │\n` +
-      `│ (Поддержка)   │ + Цитруллин (до 6–12 месяцев)             │\n` +
-      `└───────────────┴───────────────────────────────────────────┘</code>\n\n` +
-      `Все остальные вещества (витамины, минералы, адаптогены, Ноопепт, Пирацетам) находятся в каталоге вспомогательных средств.`;
+      `<b>🔄 ОБЩАЯ СХЕМА-ТАЙМЛАЙН АВТОРСКОГО КУРСА</b>\n\n` +
+      `┌─ <b>1-Й МЕСЯЦ: НАСТРОЙКА ЖКТ И ЖЕЛЧЕОТТОКА</b>\n` +
+      `│  • Хофитол (2 таб. × 3 р/д за 20 мин)\n` +
+      `│  • Полисорб МП (минимум 3 недели, отдельно на 1.5–2 ч)\n` +
+      `│  • Энтерол (250 мг × 2 р/д за 1 ч)\n` +
+      `│  • Водный баланс и электролиты при дегидратации\n` +
+      `│  <i>(Урсосан — по согласованию с врачом при камнях)</i>\n` +
+      `▼\n` +
+      `┌─ <b>СО 2-ГО МЕСЯЦА: БАЗА «НЕЙРОБУСТ» (6+ МЕСЯЦЕВ)</b>\n` +
+      `│  • Глиатилин (400 мг × 2 р/д) ➔ Месяцы 2–7+\n` +
+      `│  • Креатин (5 г/сут утром) ➔ Месяцы 2–7+\n` +
+      `│  • L-Цитруллин (3–5 г/сут утром) ➔ Месяцы 2–7+\n` +
+      `▼\n` +
+      `┌─ <b>3-Й И 4-Й МЕСЯЦЫ: ЭТАП С ФЕНОТРОПИЛОМ (РОВНО 2 МЕСЯЦА)</b>\n` +
+      `│  • Фенотропил (100 мг утром натощак)\n` +
+      `│  • <i>База (Глиатилин + Креатин + Цитруллин) продолжается!</i>\n` +
+      `▼\n` +
+      `┌─ <b>ДАЛЬНЕЙШИЕ ОПЦИИ АВТОРА</b>\n` +
+      `│  • Пирацетам ➔ далее Ноопепт ➔ иные ноотропы\n` +
+      `└  <i>(Вспомогательные средства)</i>`;
 
     addBotMessage(text, [
-      { text: '🫄 Этап 1: ЖКТ (1-й мес)', action: () => renderCourseStage1() },
-      { text: '🧠 Этап 2: Нейробуст (2-й мес, 6+ мес)', action: () => renderCourseStage2() },
-      { text: '⚡ Этап 3: Фенотропил (3-й и 4-й мес)', action: () => renderCourseStage3() },
-      { text: '📦 Вспомогательные препараты и БАДы', action: () => renderAuxiliaryMedsHub() },
-      { text: '🔙 К обзору курса', action: () => renderAuthorCourseHub() },
+      { text: '🫄 К Этапу 1', action: () => renderCourseStage1() },
+      { text: '🧠 К Этапу 2', action: () => renderCourseStage2() },
+      { text: '⚡ К Этапу 3', action: () => renderCourseStage3() },
       getBackButton(),
     ]);
   };
 
-  // =========================================================================
-  // 2. ВСПОМОГАТЕЛЬНЫЕ ПРЕПАРАТЫ И БАДЫ (КАТАЛОГ С 7 ОБЯЗАТЕЛЬНЫМИ ПУНКТАМИ)
-  // =========================================================================
-  const renderAuxiliaryMedsHub = (categoryFilter?: string) => {
-    const auxMeds = medications.filter((m) => m.is_main_course === false);
-    const categories = [
-      { id: 'all', name: 'Все вспомогательные' },
-      { id: 'nootropics', name: '🧠 Ноотропы (Ноопепт, Пирацетам...)' },
-      { id: 'minerals', name: '⚡ Микроэлементы и витамины' },
-      { id: 'adaptogens', name: '🌿 Адаптогены и травы' },
-      { id: 'gastro_extra', name: '🫄 ЖКТ (Ребагит, Креон, Омез...)' },
-      { id: 'antioxidants', name: '🛡️ Антиоксиданты и защита' },
-    ];
-
-    let items = auxMeds;
-    if (categoryFilter === 'nootropics') {
-      items = auxMeds.filter((m) => ['пирацетам', 'ноопепт', 'пикамилон', 'фенибут', 'пантогам', 'глицин', 'мексидол'].some((k) => m.name.toLowerCase().includes(k)));
-    } else if (categoryFilter === 'minerals') {
-      items = auxMeds.filter((m) => ['цинк', 'магний', 'железо', 'витамин d', 'b-комплекс', 'медь', 'йод', 'селен', 'фолат'].some((k) => m.name.toLowerCase().includes(k)));
-    } else if (categoryFilter === 'adaptogens') {
-      items = auxMeds.filter((m) => ['тмин', 'родиола', 'ашваганда', 'женьшень', 'элеутерококк', 'левзея', 'ежовик'].some((k) => m.name.toLowerCase().includes(k)));
-    } else if (categoryFilter === 'gastro_extra') {
-      items = auxMeds.filter((m) => ['ребагит', 'креон', 'омез', 'урсосан', 'тримедат', 'дюспаталин'].some((k) => m.name.toLowerCase().includes(k)));
-    } else if (categoryFilter === 'antioxidants') {
-      items = auxMeds.filter((m) => ['глутатион', 'nac', 'ацетилцистеин', 'альфа-липоевая', 'коэнзим q10', 'астаксантин', 'ресвератрол'].some((k) => m.name.toLowerCase().includes(k)));
-    }
-
+  // 2. ПОХУДЕНИЕ И ПИТАНИЕ
+  const renderNutritionHub = () => {
+    addUserMessage('⚖️ Похудение и питание');
+    const lastWeight = weightList[0];
     const text =
-      `<b>📦 ВСПОМОГАТЕЛЬНЫЕ ПРЕПАРАТЫ И БАДЫ</b>\n` +
-      `<i>Структурированный каталог дополнительных средств</i>\n\n` +
-      `Эти вещества не входят в базовый трехэтапный курс, не назначаются автоматически всем подряд, ` +
-      `а рассматриваются индивидуально под конкретные задачи.\n\n` +
-      `Для каждого препарата подробно приведены <b>7 разделов</b>, включая инструкцию производителя, ` +
-      `личный опыт автора, предостережения и место относительно основного курса.\n\n` +
-      `Показано средств: <b>${items.length} из ${auxMeds.length}</b>. Выберите категорию или препарат:`;
+      `<b>⚖️ ПОХУДЕНИЕ И ПИТАНИЕ</b>\n` +
+      `<i>Авторский подход @DonDearOfficina к композиции тела</i>\n\n` +
+      `• <b>Текущий вес:</b> ${lastWeight ? `${lastWeight.weight} кг (от ${lastWeight.date})` : 'не внесен'}\n\n` +
+      `<b>Подразделы:</b>\n` +
+      `• <b>Снижение жиров в рационе</b> — авторский инструмент регуляции состава тела (материал готовится).\n` +
+      `• <b>Энергетический баланс</b> — дефицит калорий и расход энергии.\n` +
+      `• <b>Питание и гормоны</b> — сохранение стероидогенеза без критического дефицита ПНЖК.\n` +
+      `• <b>Дневник веса</b> — отслеживание динамики.\n\n` +
+      `<i>Для внесения веса отправьте число сообщением (например, <code>82.5</code> или <code>/weight 82.5</code>).</i>`;
 
-    const buttons: { text: string; action: () => void; variant?: 'default' | 'danger' | 'success' | 'outline' }[] = [];
+    addBotMessage(text, [
+      { text: '🥑 Снижение жиров в рационе', action: () => renderNutritionFats() },
+      { text: '⚡ Энергобаланс и CICO', action: () => renderNutritionEnergy() },
+      { text: '🧬 Питание и гормональная система', action: () => renderNutritionHormones() },
+      { text: '📊 Дневник веса', action: () => renderWeightDiary() },
+      { text: '📩 Спросить автора о питании', action: () => renderDonDearContactHub() },
+      getBackButton(),
+    ]);
+  };
 
-    // Category buttons
-    buttons.push({ text: '🧠 Ноотропы (Ноопепт, Пирацетам...)', action: () => renderAuxiliaryMedsHub('nootropics') });
-    buttons.push({ text: '⚡ Микроэлементы и витамины', action: () => renderAuxiliaryMedsHub('minerals') });
-    buttons.push({ text: '🌿 Адаптогены и растительные экстракты', action: () => renderAuxiliaryMedsHub('adaptogens') });
-    buttons.push({ text: '🫄 ЖКТ-поддержка (Ребагит, Креон, Омез)', action: () => renderAuxiliaryMedsHub('gastro_extra') });
-    buttons.push({ text: '🛡️ Антиоксиданты и защита', action: () => renderAuxiliaryMedsHub('antioxidants') });
+  const renderNutritionFats = () => {
+    addUserMessage('🥑 Снижение жиров в рационе');
+    const text =
+      `<b>🥑 СНИЖЕНИЕ КОЛИЧЕСТВА ЖИРОВ В РАЦИОНЕ</b>\n` +
+      `<i>[Статус: Авторский материал готовится к публикации]</i>\n\n` +
+      `Снижение пищевых жиров — важный элемент авторской концепции оптимизации состава тела.\n\n` +
+      `<b>Различие терминов:</b>\n` +
+      `1. Снижение доли пищевых жиров — перераспределение макронутриентов.\n` +
+      `2. Общий дефицит калорий — расход запасов энергии.\n` +
+      `3. Снижение жировой массы тела — цель коррекции состава тела.\n\n` +
+      `<b>⚠️ Предостережение:</b> Подход автора не предполагает полного исключения жиров или дефицита незаменимых жирных кислот (Омега-3). Экстремальные безжировые диеты опасны для гормональной системы.`;
 
-    // Individual item buttons (first 6 items)
-    items.slice(0, 6).forEach((m) => {
-      buttons.push({
-        text: `💊 ${m.name.slice(0, 32)}`,
-        action: () => renderAuxiliaryMedDetail(m),
-      });
+    addBotMessage(text, [
+      { text: '📊 Дневник веса', action: () => renderWeightDiary() },
+      { text: '🔙 К питанию', action: () => renderNutritionHub() },
+      getBackButton(),
+    ]);
+  };
+
+  const renderNutritionEnergy = () => {
+    addUserMessage('⚡ Энергетический баланс');
+    const text =
+      `<b>⚡ ЭНЕРГЕТИЧЕСКИЙ БАЛАНС И ПОЛНОЦЕННОСТЬ</b>\n\n` +
+      `• Снижение жировой массы физиологически невозможно без умеренного дефицита энергии.\n` +
+      `• Дефицит не должен быть чрезмерным (не более 15–20% от суточного TDEE), чтобы не спровоцировать замедление щитовидной железы и срыв.\n` +
+      `• Достаточность белка защищает сухую мышечную массу.`;
+
+    addBotMessage(text, [
+      { text: '📊 Дневник веса', action: () => renderWeightDiary() },
+      { text: '🔙 К питанию', action: () => renderNutritionHub() },
+      getBackButton(),
+    ]);
+  };
+
+  const renderNutritionHormones = () => {
+    addUserMessage('🧬 Питание и гормоны');
+    const text =
+      `<b>🧬 ПИТАНИЕ И ГОРМОНАЛЬНАЯ СИСТЕМА</b>\n\n` +
+      `• Холестерин — субстрат для синтеза тестостерона и кортизола.\n` +
+      `• Контроль быстрых углеводов стабилизирует чувствительность к инсулину.\n` +
+      `• Лептин подает сигнал насыщения в гипоталамус.\n\n` +
+      `<i>Авторские материалы готовятся к публикации.</i>`;
+
+    addBotMessage(text, [
+      { text: '🔙 К питанию', action: () => renderNutritionHub() },
+      getBackButton(),
+    ]);
+  };
+
+  const renderWeightDiary = () => {
+    addUserMessage('📊 Дневник веса');
+    let listText = '';
+    weightList.forEach((w, idx) => {
+      listText += `${idx + 1}. <b>${w.date}</b>: ${w.weight} кг\n`;
     });
 
-    buttons.push({ text: '🎯 Начать авторский курс', action: () => renderAuthorCourseHub(), variant: 'success' });
-    buttons.push(getBackButton());
-
-    addBotMessage(text, buttons);
-  };
-
-  const renderAuxiliaryMedDetail = (m: Medication) => {
-    addUserMessage(`💊 ${m.name}`);
-
     const text =
-      `<b>💊 ${m.name.toUpperCase()}</b>\n` +
-      `<i>Вспомогательный препарат / БАД</i>\n\n` +
-      `1️⃣ <b>НАЗВАНИЕ ПРЕПАРАТА:</b>\n` +
-      `• ${m.name} (${m.active_ingredient || '—'})\n` +
-      `• Статус в РФ: ${m.legal_category_rf === 'medicine' ? 'Лекарственный препарат (ГРЛС)' : m.legal_category_rf === 'vitamin_mineral' ? 'Витамины / Минералы' : 'БАД к пище'}\n\n` +
-      `2️⃣ <b>ДЛЯ ЧЕГО ИСПОЛЬЗУЕТСЯ:</b>\n` +
-      `• ${m.purpose || m.why_in_stack || m.notes || 'Поддержка метаболизма и когнитивных функций'}\n\n` +
-      `3️⃣ <b>КОГДА РАССМАТРИВАЕТСЯ ПРИМЕНЕНИЕ:</b>\n` +
-      `• ${m.when_considered || 'По индивидуальным показаниям или лабораторным маркерам'}\n\n` +
-      `4️⃣ <b>КАК ПРИНИМАТЬ ПО ИНСТРУКЦИИ:</b>\n` +
-      `• ${m.instruction_usage || m.schedule || 'Строго по официальной инструкции производителя'}\n\n` +
-      `5️⃣ <b>ЛИЧНЫЙ ОПЫТ АВТОРА:</b>\n` +
-      `• ${m.personal_experience || m.clarification_note || 'Применяется вне базовой триады курса'}\n\n` +
-      `6️⃣ <b>ПРЕДОСТЕРЕЖЕНИЯ И ПРОТИВОПОКАЗАНИЯ:</b>\n` +
-      `• ${m.precautions || 'Требуется консультация специалиста и учет противопоказаний'}\n\n` +
-      `7️⃣ <b>МЕСТО ОТНОСИТЕЛЬНО ОСНОВНОГО КУРСА:</b>\n` +
-      `• ${m.relation_to_main_course || 'Вспомогательное средство. Не входит в базовый курс'}\n\n` +
-      (m.meta_analysis_summary ? `📊 <i>Мета-анализы:</i> ${m.meta_analysis_summary}\n\n` : '') +
-      `⚠️ <i>Информация носит ознакомительный характер. Требуется консультация врача.</i>`;
+      `<b>📊 ДНЕВНИК ВЕСА</b>\n\n` +
+      `<b>История записей:</b>\n${listText}\n` +
+      `<b>Чтобы добавить запись:</b>\n` +
+      `Отправьте сообщение с числом (например: <code>81.5</code> или команду <code>/weight 81.5</code>).`;
 
     addBotMessage(text, [
-      {
-        text: '🤖 Проверить совместимость с курсом',
-        action: () => handleAskAssistant(`Расскажи о совместимости вспомогательного средства ${m.name} с основным авторским курсом (Хофитол, Глиатилин, Креатин, Фенотропил)`),
-      },
-      { text: '📦 Назад в каталог вспомогательных', action: () => renderAuxiliaryMedsHub() },
-      { text: '🎯 Начать авторский курс', action: () => renderAuthorCourseHub() },
+      weightList.length > 0
+        ? {
+            text: '🗑️ Удалить последнюю запись',
+            action: () => {
+              setWeightList((prev) => prev.slice(1));
+              addUserMessage('Удалить запись веса');
+              addBotMessage('🗑️ Последняя запись удалена.');
+            },
+          }
+        : { text: 'Внести вес', action: () => {} },
+      { text: '🔙 К питанию', action: () => renderNutritionHub() },
       getBackButton(),
     ]);
   };
 
-  // ==========================================
-  // 2. РАЗДЕЛ «СИСТЕМА ТРЕНИРОВОК» (ГОРМОНАЛЬНЫЙ ЗАПУСК & СНЯТИЕ ЗАСТОЕВ)
-  // ==========================================
-  const renderWorkoutHub = () => {
-    const completedCount = workoutExercises.filter((e) => e.is_completed).length;
+  // 3. ВСПОМОГАТЕЛЬНЫЕ ПРЕПАРАТЫ
+  const renderAuxiliaryMedsHub = () => {
+    addUserMessage('📦 Вспомогательные препараты и БАДы');
+    const aux = medications.filter((m) => !m.is_main_course && m.status === 'active');
+
     const text =
-      '🏋️‍♂️ <b>СИСТЕМА КОМПЛЕКСНЫХ ТРЕНИРОВОК С ПРИОРИТЕТОМ НОГ</b>\n' +
-      '<i>Продолжительность: 45–60 минут | Автор: @DonDearOfficina</i>\n\n' +
-      '<b>ОСНОВНАЯ КОНЦЕПЦИЯ:</b>\n' +
-      'Методика основана на комплексной силовой тренировке всего тела продолжительностью 45–60 минут. ' +
-      'Её ключевые особенности — <b>начало с икроножных мышц и приседаний</b>, высокая интенсивность, ' +
-      '<b>свободное чередование упражнений</b> на разные мышечные группы и постепенное увеличение рабочих весов.\n\n' +
-      '<b>ПРИНЦИПЫ И СТРУКТУРА:</b>\n' +
-      '1. <b>Начало тренировки:</b>\n' +
-      '   • <b>1. Икроножные мышцы:</b> 2 рабочих подхода (15–25 повт., пауза 2 сек вверху). Периферический венозный насос голени.\n' +
-      '   • <b>2. Приседания:</b> 2 рабочих подхода <b>В ОТКАЗ</b> своим весом или с отягощением (с разминочными сетами перед тяжелыми движениями). Запуск кровотока малого таза, дренаж простаты, выброс тестостерона.\n' +
-      '2. <b>Комплексная проработка мышц (Фулбоди):</b>\n' +
-      '   • 2 упражнения на грудь (по 2 подхода)\n' +
-      '   • 2 упражнения на спину (по 2 подхода)\n' +
-      '   • 2 упражнения на плечи (по 2 подхода)\n' +
-      '   • <b>2 дополнительных упражнения на ноги</b> (разгибания/сгибания голени по 2 подхода)\n' +
-      '   • <b>Ягодичные мышцы прорабатываются отдельно</b> (мостик с фиксацией 2–3 сек)\n' +
-      '   • Дополнительно (по целям и времени): руки (бицепс/трицепс), пресс.\n' +
-      '3. <b>Свободное чередование упражнений:</b>\n' +
-      '   Тренировка не требует жесткого завершения всех подходов одной группы подряд. ' +
-      '   Вы можете свободно переходить между тренажерами по мере доступности и усталости, используя паузы как <i>активный отдых</i> для мышц-антагонистов.\n' +
-      '4. <b>Интенсивность:</b> 2 предельно интенсивных подхода на каждое упражнение с ориентацией на мышечный отказ.\n\n' +
-      `Прогресс выполнения сегодня: <b>${completedCount} из ${workoutExercises.length}</b>\n\n` +
-      '<i>Выберите упражнение для разбора техники и отметки:</i>';
+      `<b>📦 ВСПОМОГАТЕЛЬНЫЕ ПРЕПАРАТЫ И БАДЫ</b>\n\n` +
+      `Препараты, вынесенные автором за рамки базового курса:\n` +
+      `• Средства водного баланса (Регидрон, Адиарин Регидрокомплекс)\n` +
+      `• Последующие ноотропы автора (Пирацетам, <b>Ноопепт</b>)\n` +
+      `• Микронутриенты (Цинк, Селен, Ферлатум Фол)\n` +
+      `• Гастропротекторы (Урсосан, Ребагит, Креон)\n\n` +
+      `<i>Выберите препарат для изучения 7 разделов описания:</i>`;
 
-    addBotMessage(text, [
-      {
-        text: '🦶 1. СТАРТ: Икроножные мышцы (2 подхода)',
-        action: () => renderWorkoutExerciseDetail('ex_calves'),
-        variant: 'success',
-      },
-      {
-        text: '🦵 2. СТАРТ: Приседания (2 подхода В ОТКАЗ)',
-        action: () => renderWorkoutExerciseDetail('ex_squats'),
-        variant: 'success',
-      },
-      { text: '💪 3. Грудные мышцы (2 упр.)', action: () => renderWorkoutGroup('chest') },
-      { text: '🔙 4. Мышцы спины (2 упр.)', action: () => renderWorkoutGroup('back') },
-      { text: '🎯 5. Плечевой пояс (2 упр.)', action: () => renderWorkoutGroup('shoulders') },
-      { text: '🦵 6. Доп. упражнения на ноги (2 упр.)', action: () => renderWorkoutGroup('legs_additional') },
-      { text: '🍑 7. Ягодичные мышцы (отдельно)', action: () => renderWorkoutExerciseDetail('ex_glutes_1') },
-      { text: '🔥 8. Дополнительно: Руки / Пресс', action: () => renderWorkoutExerciseDetail('ex_optional_arms_core') },
-      {
-        text: '🌿 1-й месяц: Настройка ЖКТ',
-        action: () => handleSelectSection('gastro_month1'),
-      },
-      getBackButton(),
-    ]);
-  };
-
-  const renderWorkoutGroup = (group: 'chest' | 'back' | 'shoulders' | 'legs_additional') => {
-    const titles = {
-      chest: 'Грудные мышцы (2 упражнения)',
-      back: 'Мышцы спины (2 упражнения)',
-      shoulders: 'Плечевой пояс (2 упражнения)',
-      legs_additional: 'Дополнительные упражнения на ноги (2 упражнения)',
-    };
-    addUserMessage(`Упражнения: ${titles[group]}`);
-    const items = workoutExercises.filter((e) => e.muscle_group === group);
-
-    const buttons = items.map((ex) => ({
-      text: `${ex.is_completed ? '✅' : '⚪️'} ${ex.name.slice(0, 34)}...`,
-      action: () => renderWorkoutExerciseDetail(ex.id),
+    const buttons = aux.slice(0, 8).map((m) => ({
+      text: `💊 ${m.name}`,
+      action: () => renderMedCard(m),
     }));
-    buttons.push({ text: '◀️ К плану тренировки', action: () => renderWorkoutHub() });
-    buttons.push(getBackButton());
-
-    addBotMessage(`Блок «<b>${titles[group]}</b>» (по 2 рабочих подхода в отказ, свободное чередование):\nВыберите упражнение:`, buttons);
-  };
-
-  const renderWorkoutExerciseDetail = (exerciseId: string) => {
-    const ex = workoutExercises.find((e) => e.id === exerciseId);
-    if (!ex) return;
-    addUserMessage(ex.name);
-
-    const text =
-      `🏋️‍♂️ <b>${ex.muscle_title.toUpperCase()}</b>\n` +
-      `<b>${ex.name}</b>\n\n` +
-      `• <b>Подходы:</b> ${ex.sets}\n` +
-      `• <b>Повторения:</b> ${ex.reps}\n` +
-      `• <b>Техника и регламент автора:</b> ${ex.notes}\n\n` +
-      `⚡ <b>ФИЗИОЛОГИЧЕСКИЙ & ГОРМОНАЛЬНЫЙ МЕХАНИЗМ:</b>\n${ex.hormonal_mechanism}\n\n` +
-      `Статус: <b>${ex.is_completed ? '✅ Выполнено' : '⚪️ Не выполнено'}</b>\n\n` +
-      `⚠️ <i>Личный опыт, разбор открытых данных.</i>`;
 
     addBotMessage(text, [
-      {
-        text: ex.is_completed ? 'Снять отметку о выполнении' : '✅ Отметить выполненным',
-        action: () => {
-          toggleWorkoutExercise(ex.id);
-          addUserMessage(ex.is_completed ? 'Отменить выполнение' : 'Отмечено выполненным');
-          setTimeout(() => renderWorkoutExerciseDetail(ex.id), 150);
-        },
-        variant: ex.is_completed ? 'outline' : 'success',
-      },
-      { text: '◀️ К структуре тренировок', action: () => renderWorkoutHub() },
+      ...buttons,
+      { text: '🎯 Начать авторский курс', action: () => renderAuthorCourseHub(), variant: 'success' },
       getBackButton(),
     ]);
   };
 
-  // ==========================================
-  // 3. РАЗДЕЛ «МОЯ БАЗА ПРЕПАРАТОВ» (АВТОРСКИЙ СТЕК С МЕТА-АНАЛИЗАМИ)
-  // ==========================================
-  const renderMedicationsHub = () => {
-    const text =
-      '💊 <b>МОЯ БАЗА ПРЕПАРАТОВ (АВТОРСКИЙ СТЕК)</b>\n\n' +
-      '<b>ВЕКТОР:</b> <i>1. ЖКТ-фундамент ➔ 2. Старт нейробуста ➔ 3. Микронутриенты & Продолжение нейробуста ➔ 4. Раздел «Поддержка».</i>\n\n' +
-      'Контур сужен на <b>мой личный стек</b> препаратов, витаминов и БАД, которые я использовал и использую.\n' +
-      'Каждое вещество классифицировано по <b>законодательству РФ</b> (Лекарственные препараты в ГРЛС / Витамины и минералы / БАД) ' +
-      'с доказательной информацией из <b>мета-анализов РКИ со ссылками на PubMed/DOI</b>.\n\n' +
-      `Статус авторского протокола в вашем профиле: <b>${
-        currentUser.on_author_protocol ? '💎 Активен (on_author_protocol=true)' : '⚪️ Не активен'
-      }</b>`;
-
-    addBotMessage(text, [
-      { text: '🌿 1-й месяц: ЖКТ-фундамент (Хофитол, Энтерол)', action: () => renderMedPhaseList(1), variant: 'success' },
-      { text: '🧠 2-й месяц: Нейробуст старт (Фенотропил, Глиатилин, Креатин, Цитруллин)', action: () => renderMedPhaseList(2) },
-      { text: '🛡 3-й месяц: Микронутриенты & Продолжение нейробуста', action: () => renderMedPhaseList(3), variant: 'success' },
-      { text: '📦 Раздел «Поддержка» (Вспомогательный стек за год)', action: () => renderMedPhaseList(4) },
-      { text: '⚖️ Регистрация в законодательстве РФ (ЛС / Витамины / БАД)', action: () => renderRfLegalClassificationList() },
-      { text: '📊 Доказательная база мета-анализов (РКИ)', action: () => renderMetaAnalysisEvidenceList() },
-      { text: '🟢 Все препараты стека (@DonDearOfficina)', action: () => renderMedSubcategory('active') },
-      {
-        text: currentUser.on_author_protocol ? 'Отключить флаг следования' : '🚀 Следовать авторскому стеку',
-        action: () => {
-          toggleAuthorProtocol();
-          addUserMessage('Сменить статус следования стеку');
-          addBotMessage(
-            `Статус следования стеку: <b>${
-              !currentUser.on_author_protocol ? 'Активирован' : 'Отключен'
-            }</b>. Супер-ассистент будет автоматически сверять взаимодействия с этим стеком!`,
-            [getBackButton()]
-          );
-        },
-        variant: currentUser.on_author_protocol ? 'outline' : 'success',
-      },
-      getBackButton(),
-    ]);
+  const renderMedCardByName = (name: string) => {
+    const med = medications.find((m) => m.name.toLowerCase() === name.toLowerCase()) || medications[0];
+    renderMedCard(med);
   };
 
-  const renderMedPhaseList = (phase: 1 | 2 | 3 | 4) => {
-    const titles: Record<number, string> = {
-      1: '🌿 1-й месяц: ЖКТ-фундамент',
-      2: '🧠 2-й месяц: Нейробуст & Энергия (Старт)',
-      3: '🛡 3-й месяц: Микронутриенты & Продолжение нейробуста',
-      4: '📦 Раздел «Поддержка»: Дополнительные препараты и БАД за год',
-    };
-    addUserMessage(titles[phase]);
-
-    const items = medications.filter((m) => m.month_phase === phase);
-
-    let content = `<b>${titles[phase].toUpperCase()}</b>\n\n`;
-
-    if (phase === 3) {
-      content +=
-        '💡 <b>РЕГЛАМЕНТ 3-ГО МЕСЯЦА (ПРОДОЛЖЕНИЕ НЕЙРОБУСТА + МИКРОНУТРИЕНТЫ):</b>\n' +
-        '• <b>Фенотропил:</b> продолжается 2-й месяц (курс рассчитан строго на 2 месяца: 2-й и 3-й месяцы).\n' +
-        '• <b>Глиатилин, Креатин и L-Цитруллин:</b> базовый постоянный стек — принимаются <b>минимум от 6 месяцев до 1 года</b>!\n' +
-        '• <b>Микронутриентный пул:</b> Ферлатум Фол (железо) утром с витамином С, Цинк в обед (разносить с железом на 4 часа из-за DMT-1), Селен вечером, Витамин D3 и Йодомарин.\n\n';
-    } else if (phase === 4) {
-      content +=
-        '📦 <b>РАЗДЕЛ «ПОДДЕРЖКА»:</b>\n' +
-        'Вспомогательные препараты, витамины и БАД, которые использовались автором в течение года либо могут подключаться ситуационно/курсами с разбором законодательного статуса РФ и мета-анализов.\n\n';
-    }
-
-    if (items.length === 0) {
-      content += '<i>В этой фазе препараты не найдены.</i>\n';
-    } else {
-      items.forEach((m, idx) => {
-        const legalTag =
-          m.legal_category_rf === 'medicine'
-            ? '💊 Лекарственный препарат (ГРЛС)'
-            : m.legal_category_rf === 'vitamin_mineral'
-            ? '🟢 Витамины и минералы'
-            : '🟡 БАД к пище';
-
-        const metaRefs = m.meta_analysis_refs?.length
-          ? m.meta_analysis_refs.join(', ')
-          : 'PMID: ' + (m.evidence_refs?.join(', ') || 'Ограничены');
-
-        content +=
-          `<b>${idx + 1}. ${m.name}</b> [${legalTag}]\n` +
-          `• <b>Действующее вещество:</b> ${m.active_ingredient || '—'}\n` +
-          `• <b>Режим & Дозировка:</b> ${m.dose || '—'} (${m.schedule || '—'})\n` +
-          (m.duration_course ? `• <b>Курс приема:</b> <i>${m.duration_course}</i>\n` : '') +
-          (m.why_in_stack ? `• <b>Зачем в моем стеке:</b> ${m.why_in_stack}\n` : `• <b>Зачем:</b> ${m.notes || '—'}\n`) +
-          (m.meta_analysis_summary ? `• <b>Мета-анализы (РКИ):</b> ${m.meta_analysis_summary}\n` : '') +
-          `• <b>PMID/DOI:</b> <code>${metaRefs}</code>\n\n`;
-      });
-    }
-
-    content += '⚠️ <i>Личный опыт, разбор открытых данных.</i>';
-
-    const buttons = items.map((m) => ({
-      text: `🔍 Карточка: ${m.name.slice(0, 30)}`,
-      action: () => renderSingleMedCard(m),
-    }));
-    buttons.push({ text: '◀️ К разделам препаратов', action: () => renderMedicationsHub() });
-    buttons.push(getBackButton());
-
-    addBotMessage(content, buttons);
-  };
-
-  const renderRfLegalClassificationList = () => {
-    addUserMessage('⚖️ Классификация по законодательству РФ');
-
-    const medicines = medications.filter((m) => m.legal_category_rf === 'medicine');
-    const vitamins = medications.filter((m) => m.legal_category_rf === 'vitamin_mineral');
-    const supplements = medications.filter((m) => m.legal_category_rf === 'supplement');
-
-    const content =
-      '⚖️ <b>КЛАССИФИКАЦИЯ ПРЕПАРАТОВ ПО ЗАКОНОДАТЕЛЬСТВУ РФ</b>\n' +
-      '<i>Государственный реестр лекарственных средств (ГРЛС) и реестр БАД:</i>\n\n' +
-      '💊 <b>1. ЛЕКАРСТВЕННЫЕ ПРЕПАРАТЫ (ГРЛС):</b>\n' +
-      medicines.map((m) => `• <b>${m.name}</b> (${m.active_ingredient}) — ${m.duration_course || m.dose || 'по назначению'}`).join('\n') +
-      '\n\n' +
-      '🟢 <b>2. ВИТАМИНЫ И МИНЕРАЛЫ (Фармацевтические формы & монопрепараты):</b>\n' +
-      vitamins.map((m) => `• <b>${m.name}</b> (${m.active_ingredient}) — ${m.duration_course || m.dose || 'курсовой'}`).join('\n') +
-      '\n\n' +
-      '🟡 <b>3. БАД (Биологически активные добавки к пище):</b>\n' +
-      supplements.map((m) => `• <b>${m.name}</b> (${m.active_ingredient}) — ${m.duration_course || m.dose || 'длительно'}`).join('\n') +
-      '\n\n' +
-      '⚠️ <i>Личный опыт, разбор открытых данных.</i>';
-
-    addBotMessage(content, [
-      { text: '🛡 3-й месяц (Микронутриенты & Нейробуст)', action: () => renderMedPhaseList(3), variant: 'success' },
-      { text: '📦 Раздел «Поддержка»', action: () => renderMedPhaseList(4) },
-      { text: '◀️ К разделам препаратов', action: () => renderMedicationsHub() },
-      getBackButton(),
-    ]);
-  };
-
-  const renderMetaAnalysisEvidenceList = () => {
-    addUserMessage('📊 Мета-анализы и доказательная база');
-    const itemsWithMeta = medications.filter((m) => m.meta_analysis_summary || (m.meta_analysis_refs && m.meta_analysis_refs.length > 0));
-
-    let content =
-      '📊 <b>ДОКАЗАТЕЛЬНАЯ БАЗА МЕТА-АНАЛИЗОВ ПО ПРЕПАРАТАМ СТЕКА</b>\n\n' +
-      'Каждое назначение в авторском стеке подтверждено мета-анализами рандомизированных контролируемых исследований (РКИ, уровень A–B):\n\n';
-
-    itemsWithMeta.forEach((m, idx) => {
-      const refs = m.meta_analysis_refs?.join(', ') || m.evidence_refs?.join(', ') || '';
-      content +=
-        `<b>${idx + 1}. ${m.name}</b> (${m.active_ingredient || '—'})\n` +
-        `• <b>Вывод мета-анализов:</b> ${m.meta_analysis_summary || m.notes}\n` +
-        `• <b>Ссылки (PMID/DOI):</b> <code>${refs}</code>\n\n`;
-    });
-
-    content += '⚠️ <i>Личный опыт, разбор открытых данных.</i>';
-
-    addBotMessage(content, [
-      { text: '◀️ К разделам препаратов', action: () => renderMedicationsHub() },
-      getBackButton(),
-    ]);
-  };
-
-  const renderSingleMedCard = (m: Medication) => {
+  const renderMedCard = (m: Medication) => {
     addUserMessage(m.name);
-    const refs = m.meta_analysis_refs?.length ? m.meta_analysis_refs.join(', ') : m.evidence_refs?.join(', ') || 'Данные ограничены';
-    const dates = m.start_date ? ` (старт: ${m.start_date}${m.end_date ? `, до: ${m.end_date}` : ''})` : '';
-
-    const phaseLabel =
-      m.month_phase === 1
-        ? '🌿 1-й месяц (ЖКТ-фундамент)'
-        : m.month_phase === 2
-        ? '🧠 2-й месяц (Нейробуст старт)'
-        : m.month_phase === 3
-        ? '🛡 3-й месяц (Микронутриенты & Продолжение нейробуста)'
-        : m.month_phase === 4
-        ? '📦 Раздел «Поддержка»'
-        : 'Курсовой препарат';
-
-    const rfLabel =
+    const legalLabel =
       m.legal_category_rf === 'medicine'
-        ? '💊 Лекарственный препарат (ГРЛС)'
+        ? 'Лекарственный препарат (ГРЛС)'
         : m.legal_category_rf === 'vitamin_mineral'
-        ? '🟢 Витамины и минералы'
-        : '🟡 БАД к пище';
+        ? 'Витаминно-минеральный комплекс'
+        : 'БАД к пище';
 
-    const content =
-      `💊 <b>${m.name}</b>\n` +
-      `[<b>${phaseLabel}</b> | <b>${rfLabel}</b>]\n\n` +
-      `• <b>Действующее вещество:</b> ${m.active_ingredient || 'Не указано'}\n` +
-      `• <b>Дозировка и режим:</b> ${m.dose || '—'} (${m.schedule || '—'})${dates}\n` +
-      (m.duration_course ? `• <b>Курс приема:</b> <i>${m.duration_course}</i>\n` : '') +
-      (m.why_in_stack ? `• <b>Зачем в моем стеке:</b> ${m.why_in_stack}\n` : `• <b>Зачем:</b> ${m.notes || '—'}\n`) +
-      (m.meta_analysis_summary ? `• <b>Доказательная база мета-анализов:</b> ${m.meta_analysis_summary}\n` : '') +
-      `• <b>Ссылки на мета-анализы / PMID:</b> <code>${refs}</code>\n` +
-      (m.clarification_note ? `• <b>Примечание автора:</b> <i>${m.clarification_note}</i>\n` : '') +
-      `\n⚠️ <i>Личный опыт, разбор открытых данных.</i>`;
-
-    addBotMessage(content, [
-      {
-        text: '🤖 Проверить взаимодействия с этим препаратом',
-        action: () => handleAskAssistant(`Расскажи о совместимости и взаимодействиях препарата ${m.name} (${m.active_ingredient}) с другими добавками стека`),
-      },
-      { text: '◀️ К списку препаратов', action: () => renderMedicationsHub() },
-      getBackButton(),
-    ]);
-  };
-
-  const renderMedSubcategory = (status: 'active' | 'pending' | 'archive' | 'needs_clarification') => {
-    const statusTitles = {
-      active: '🟢 Активные препараты стека',
-      pending: '⏳ Ожидающие старта',
-      archive: '📁 Архивные и курсовые препараты',
-      needs_clarification: '❓ Требующие уточнения (needs_clarification)',
-    };
-    addUserMessage(statusTitles[status]);
-
-    const items = medications.filter((m) => m.status === status);
-
-    let content = `<b>${statusTitles[status]}</b>\n\n`;
-    if (status === 'needs_clarification') {
-      content += '<i>⚠️ Препараты с неуточненным составом не включаются в active до верификации формулы:</i>\n\n';
-    }
-
-    if (items.length === 0) {
-      content += '<i>В этой категории сейчас нет записей.</i>\n';
-    } else {
-      items.forEach((m, idx) => {
-        const refs = m.meta_analysis_refs?.length ? m.meta_analysis_refs.join(', ') : m.evidence_refs?.join(', ') || 'Данные ограничены';
-        content +=
-          `<b>${idx + 1}. ${m.name}</b>\n` +
-          `• <b>Действующее вещество:</b> ${m.active_ingredient || 'Не указано'}\n` +
-          `• <b>Доза и время:</b> ${m.dose || '—'} (${m.schedule || '—'})\n` +
-          (m.why_in_stack ? `• <b>Зачем в стеке:</b> ${m.why_in_stack}\n` : `• <b>Зачем:</b> ${m.notes || '—'}\n`) +
-          `• <b>PMID/DOI:</b> <code>${refs}</code>\n\n`;
-      });
-    }
-
-    content += '⚠️ <i>Личный опыт, разбор открытых данных.</i>';
-
-    addBotMessage(content, [
-      { text: '◀️ К разделам препаратов', action: () => renderMedicationsHub() },
-      getBackButton(),
-    ]);
-  };
-
-  // ==========================================
-  // 4. РАЗДЕЛ «БАЗА ЗНАНИЙ» (ВКЛЮЧАЯ ИСЛАМСКУЮ МЕДИЦИНУ)
-  // ==========================================
-  const renderKnowledgeNotesHub = () => {
     const text =
-      '📚 <b>БАЗА ЗНАНИЙ @DonDearOfficina</b>\n\n' +
-      'Личные экспертные заметки владельца (дипломированный провизор): ' +
-      'настройка ЖКТ, нейромедиаторы, андрология, доказательная фармация, а также доказательный разбор средств исламской медицины.\n\n' +
-      '<i>Выберите тему:</i>';
+      `<b>1. Название:</b> <b>${m.name}</b>\n` +
+      `<i>Активное вещество: ${m.active_ingredient || 'Уточняется'}\n` +
+      `Категория: ${legalLabel}</i>\n\n` +
+      `<b>2. Для чего используется:</b>\n` +
+      `${m.purpose || m.notes || 'Информация уточняется'}\n\n` +
+      `<b>3. Когда рассматривается применение:</b>\n` +
+      `${m.when_considered || m.why_in_stack || 'По показаниям'}\n\n` +
+      `<b>4. Как принимать по инструкции (производитель):</b>\n` +
+      `${m.instruction_usage || m.dose || 'По официальной инструкции'}\n\n` +
+      `<b>5. Личный опыт автора:</b>\n` +
+      `${m.personal_experience || 'Наблюдение автора, не заменяет консультацию врача'}\n\n` +
+      `<b>6. Ограничения и предостережения:</b>\n` +
+      `${m.precautions || 'Противопоказания по инструкции'}\n\n` +
+      `<b>7. Связь с основным курсом:</b>\n` +
+      `${m.relation_to_main_course || 'Дополнительный компонент'}\n\n` +
+      `<i>Это не медицинская рекомендация. По вопросам применения проконсультируйтесь со специалистом или напишите автору.</i>`;
 
-    const topics = [
-      'Все темы',
-      'ЖКТ и всасывание',
-      'Исламская медицина (доказательный разбор)',
-      'Нейробиология',
-      'Андрология',
-      'Фармакология',
-      'Биохакинг',
-      'Протоколы',
-    ];
-    const buttons: { text: string; action: () => void; variant?: 'default' | 'danger' | 'success' | 'outline' }[] = topics.map((t) => ({
-      text: t === 'ЖКТ и всасывание' ? '🌿 ЖКТ и всасывание' : t === 'Исламская медицина (доказательный разбор)' ? '🕌 Исламская медицина' : t,
-      action: () => renderKnowledgeTopic(t),
-    }));
-    buttons.push({
-      text: '🕌 Монографии исламской медицины (10 средств с РКИ)',
-      action: () => renderIslamicMedicineInKnowledgeHub(),
-      variant: 'success',
-    });
-    buttons.push(getBackButton());
-
-    addBotMessage(text, buttons);
+    addBotMessage(text, [
+      { text: `📩 Спросить автора про ${m.name}`, action: () => renderDonDearContactHub() },
+      { text: '🔙 К вспомогательным БАДам', action: () => renderAuxiliaryMedsHub() },
+      getBackButton(),
+    ]);
   };
 
-  const renderKnowledgeTopic = (topic: string) => {
-    addUserMessage(`Тема: ${topic}`);
-    const filtered =
-      topic === 'Все темы' ? knowledgeNotes : knowledgeNotes.filter((n) => n.topic === topic);
+  // 4. ТРЕНИРОВКИ
+  const renderWorkoutHub = () => {
+    addUserMessage('🏋️ Система тренировок');
+    const text =
+      `<b>🏋️ СИСТЕМА ТРЕНИРОВОК С ПРИОРИТЕТОМ НОГ</b>\n` +
+      `<b>Автор:</b> @DonDearOfficina | <b>Длительность:</b> 45–60 мин\n\n` +
+      `• <b>Старт:</b> Каждое занятие начинается с икроножных мышц (мышечно-венозная помпа голени).\n` +
+      `• <b>Приседания:</b> 2 тяжелых подхода приседаний в отказ для разгона кровотока малого таза.\n` +
+      `• <b>Комплекс всего тела:</b> Грудь + спина + плечи + ноги + ягодичные.\n` +
+      `• <b>Отдых:</b> 1.5–2 минуты между сетами.\n\n` +
+      `<i>Чек-лист упражнений на сегодня:</i>`;
 
-    if (filtered.length === 0) {
-      addBotMessage(
-        `В теме «${topic}» пока нет заметок.`,
-        [{ text: '◀️ К темам', action: () => renderKnowledgeNotesHub() }, getBackButton()]
-      );
-      return;
-    }
+    addBotMessage(text, [
+      { text: '🦶 1. Икроножные мышцы (2 подхода)', action: () => {} },
+      { text: '🏋️ 2. Приседания в отказ (2 подхода)', action: () => {} },
+      { text: '💪 3. Комплекс всего тела', action: () => {} },
+      { text: '🍑 4. Ягодичные движения', action: () => {} },
+      getBackButton(),
+    ]);
+  };
 
-    const buttons = filtered.map((n) => ({
-      text: `📖 ${n.title.slice(0, 34)}...`,
+  // 5. БАЗА ЗНАНИЙ
+  const renderKnowledgeNotesHub = () => {
+    addUserMessage('📚 Материалы автора');
+    const text =
+      `<b>📚 МАТЕРИАЛЫ АВТОРА И БАЗА ЗНАНИЙ</b>\n\n` +
+      `Авторские статьи и разборы дипломированного провизора-химика @DonDearOfficina:\n` +
+      `• Разбор этапов курса и нейромедиаторов\n` +
+      `• Взаимодействие микроэлементов (железо vs цинк)\n` +
+      `• Исламская медицина в доказательной фармации\n\n` +
+      `<i>Выберите материал для чтения:</i>`;
+
+    const buttons = knowledgeNotes.slice(0, 6).map((n) => ({
+      text: `📄 ${n.title.slice(0, 32)}...`,
       action: () => renderKnowledgeCard(n),
     }));
-    buttons.push({ text: '◀️ К темам базы знаний', action: () => renderKnowledgeNotesHub() });
-    buttons.push(getBackButton());
 
-    addBotMessage(`Заметок в разделе [${topic}]: <b>${filtered.length}</b>`, buttons);
+    addBotMessage(text, [...buttons, getBackButton()]);
   };
 
   const renderKnowledgeCard = (note: KnowledgeNote) => {
     addUserMessage(note.title);
-    const content =
-      `📚 <b>[${note.topic.toUpperCase()}]</b>\n` +
-      `<b>${note.title}</b>\n\n` +
+    const text =
+      `<b>📄 ${note.title}</b>\n` +
+      `<i>Тема: ${note.topic} | Автор: @DonDearOfficina</i>\n\n` +
       `${note.body}\n\n` +
-      `🔬 <b>Источники / PMID:</b> <code>${note.evidence_refs.join(', ')}</code>\n\n` +
-      `<i>Автор: @DonDearOfficina (дипломированный провизор).</i>\n\n` +
-      `⚠️ <i>Личный опыт, разбор открытых данных.</i>`;
-
-    addBotMessage(content, [
-      {
-        text: '💬 Задать вопрос автору лично',
-        action: () => window.open('https://t.me/DonDearOfficina', '_blank'),
-        variant: 'success',
-      },
-      { text: '◀️ Назад к базе знаний', action: () => renderKnowledgeNotesHub() },
-      getBackButton(),
-    ]);
-  };
-
-  // Evidence-based Islamic Medicine Monographs inside Knowledge Base
-  const renderIslamicMedicineInKnowledgeHub = () => {
-    addUserMessage('🕌 Монографии исламской медицины');
-    const text =
-      '🕌 <b>ИСЛАМСКАЯ МЕДИЦИНА (ДОКАЗАТЕЛЬНЫЙ РАЗБОР)</b>\n\n' +
-      '<b>ПРАВИЛО РАЗДЕЛА:</b>\n' +
-      'Религиозные тексты приводятся исключительно как историко-культурный контекст. ' +
-      'Клиническая ценность и механизмы оцениваются строго по международным уровням РКИ (A–F) со ссылками на PubMed/OpenFDA.\n\n' +
-      '<i>Выберите средство для клинического разбора:</i>';
-
-    const buttons = islamicRemedies.map((item) => ({
-      text: `${item.name_ru} (${item.name_ar || ''}) [${item.evidence_level}]`,
-      action: () => renderIslamicCard(item),
-    }));
-    buttons.push({ text: '◀️ Назад к базе знаний', action: () => renderKnowledgeNotesHub() });
-    buttons.push(getBackButton());
-
-    addBotMessage(text, buttons);
-  };
-
-  const renderIslamicCard = (item: IslamicRemedy) => {
-    addUserMessage(item.name_ru);
-    const text =
-      `🌿 <b>${item.name_ru}</b> ${item.name_ar ? `(араб. <i>${item.name_ar}</i>)` : ''}\n` +
-      `<i>${item.name_lat || ''}</i> • [<b>Уровень доказательности: ${item.evidence_level}</b>]\n\n` +
-      `• <b>Активные молекулы:</b> ${item.active_components}\n` +
-      `• <b>Научная база РКИ:</b> ${item.scientific_evidence}\n` +
-      `• <b>Источники (PMID/DOI):</b> <code>${item.evidence_refs.join(', ')}</code>\n\n` +
-      `⚠️ <b>Противопоказания (OpenFDA):</b>\n` +
-      item.contraindications.map((c) => `  - ${c}`).join('\n') +
-      `\n\n` +
-      `🕌 <b>Традиционный контекст (исторический, НЕ efficacy):</b>\n${item.traditional_use}\n\n` +
-      (item.personal_experience
-        ? `👤 <b>Личный опыт владельца (@DonDearOfficina, не РКИ):</b>\n${item.personal_experience}\n• <i>Режим:</i> ${
-            item.personal_dose || '—'
-          }\n`
-        : '👤 <i>Владелец не включал данное средство в личный активный стек.</i>\n') +
-      `\n⚠️ <i>Личный опыт, разбор открытых данных.</i>`;
+      `<i>Личный опыт автора и разбор открытых данных.</i>`;
 
     addBotMessage(text, [
-      { text: '◀️ К списку средств исламской медицины', action: () => renderIslamicMedicineInKnowledgeHub() },
-      { text: '📚 В базу знаний', action: () => renderKnowledgeNotesHub() },
+      { text: '📩 Спросить автора', action: () => renderDonDearContactHub() },
+      { text: '🔙 К материалам', action: () => renderKnowledgeNotesHub() },
       getBackButton(),
     ]);
   };
 
-  // ==========================================
-  // 4. РАЗДЕЛ «СУПЕР-АССИСТЕНТ» (ЯДРО)
-  // ==========================================
-  const renderSuperAssistantHub = () => {
-    const text =
-      '🤖 <b>СУПЕР-АССИСТЕНТ @DonDearOfficina (Gemini 3.8 Flash)</b>\n\n' +
-      '<b>ФИЛОСОФИЯ (CAUSE-FIRST):</b>\n' +
-      'Сначала выявляем разрыв в каскаде (ЖКТ ➔ нейромедиаторы ➔ микронутриенты), затем подбираем действия доказательного ряда A–F.\n\n' +
-      '• Каждое утверждение — со ссылкой на <b>PMID/DOI</b>.\n' +
-      '• Автоматическая сверка взаимодействий с активным стеком владельца.\n' +
-      '• Красные флаги (острая боль, судороги, одышка) ➔ немедленный вызов 112.\n\n' +
-      '<i>Выберите частый клинический вопрос или напишите свой симптом в строку ввода:</i>';
-
-    addBotMessage(text, [
-      {
-        text: '❓ «Хроническая сонливость и туман в голове»',
-        action: () => handleAskAssistant('Хроническая дневная сонливость, упадок энергии и туман в голове'),
-      },
-      {
-        text: '❓ «Как правильно совмещать железо и цинк?»',
-        action: () => handleAskAssistant('Как правильно совмещать железо (Ферлатум) и цинк, чтобы не блокировать всасывание?'),
-      },
-      {
-        text: '❓ «Чёрный тмин: механизм и тимохинон»',
-        action: () => handleAskAssistant('Расскажи о доказательной базе черного тмина и тимохинона с PMID'),
-      },
-      {
-        text: '🚨 Тест Красного Флага (Боль за грудиной)',
-        action: () => handleAskAssistant('Острая давящая боль за грудиной, одышка в покое и слабость'),
-        variant: 'danger',
-      },
-      getBackButton(),
-    ]);
-  };
-
-  const handleAskAssistant = async (queryText: string) => {
-    addUserMessage(queryText);
-    setIsTyping(true);
-
-    try {
-      const result = await queryAssistant(queryText);
-      setIsTyping(false);
-
-      if (result.isRedFlag) {
-        addBotMessage(
-          result.answer,
-          [
-            {
-              text: '🚑 ВЫЗВАТЬ СКОРУЮ ПОМОЩЬ (112)',
-              action: () => window.open('tel:112', '_self'),
-              variant: 'danger',
-            },
-            getBackButton(),
-          ],
-          true
-        );
-        return;
-      }
-
-      addBotMessage(result.answer, [
-        {
-          text: '📋 Скопировать выжимку для @DonDearOfficina',
-          action: () => copyAssistantSummaryToClipboard(result.summary || result.answer),
-          variant: 'success',
-        },
-        {
-          text: '📩 Обсудить с @DonDearOfficina лично',
-          action: () => window.open('https://t.me/DonDearOfficina', '_blank'),
-          variant: 'success',
-        },
-        { text: '❓ Задать другой вопрос', action: () => renderSuperAssistantHub() },
-        getBackButton(),
-      ]);
-    } catch (e) {
-      setIsTyping(false);
-      addBotMessage('⚠️ Ошибка обработки запроса. Пожалуйста, повторите попытку.', [getBackButton()]);
-    }
-  };
-
-  const copyAssistantSummaryToClipboard = (summary: string) => {
-    navigator.clipboard.writeText(summary);
-    setCopiedSummary(true);
-    setTimeout(() => setCopiedSummary(false), 2000);
-  };
-
-  // ==========================================
-  // 5. РАЗДЕЛ «СВЯЗАТЬСЯ С @DonDearOfficina»
-  // ==========================================
-  const renderDonDearContactHub = () => {
-    const text =
-      '📩 <b>СВЯЗАТЬСЯ С ЭКСПЕРТОМ @DonDearOfficina</b>\n\n' +
-      '<b>Владелец и системный эксперт:</b>\n' +
-      'Квалификация: <i>Дипломированный провизор.</i>\n\n' +
-      '⚠️ <i>Ограничение Telegram API: бот не может писать пациентам первым. ' +
-      'Вы можете написать владельцу напрямую в Telegram для живого обсуждения вашего случая.</i>\n\n' +
-      `<b>Последняя сформированная ассистентом выжимка:</b>\n` +
-      `<i>«${lastAssistantSummary}»</i>`;
-
-    addBotMessage(text, [
-      {
-        text: '📩 Написать @DonDearOfficina в Telegram',
-        action: () => window.open('https://t.me/DonDearOfficina', '_blank'),
-        variant: 'success',
-      },
-      {
-        text: copiedSummary ? '✅ Выжимка скопирована!' : '📋 Скопировать выжимку для чата',
-        action: () => copyAssistantSummaryToClipboard(lastAssistantSummary),
-      },
-      {
-        text: '📚 Личные заметки эксперта (Раздел 5)',
-        action: () => renderKnowledgeNotesHub(),
-      },
-      getBackButton(),
-    ]);
-  };
-
-  // ==========================================
-  // 6. РАЗДЕЛ «ПРОФИЛЬ»
-  // ==========================================
+  // 6. ПРОФИЛЬ
   const renderProfileHub = () => {
-    const p = currentUser.profile;
+    addUserMessage('👤 Мой профиль');
+    const isStarted = currentUser.on_author_protocol;
+    const lastWeight = weightList[0];
+
     const text =
-      '⚙️ <b>МОЙ ПРОФИЛЬ & GDPR-КОНФИДЕНЦИАЛЬНОСТЬ</b>\n\n' +
-      `• Telegram ID: <code>${currentUser.telegram_id}</code>\n` +
-      `• Имя: <b>${currentUser.first_name}</b> (@${currentUser.username || 'нет'})\n` +
-      `• Возраст: <b>${p.age || 'не указан'}</b> | Пол: <b>${p.gender || 'не указан'}</b>\n` +
-      `• Аллергии: <b>${p.allergies?.length ? p.allergies.join(', ') : 'нет'}</b>\n` +
-      `• Хронические патологии: <b>${p.chronicDiseases?.length ? p.chronicDiseases.join(', ') : 'нет'}</b>\n` +
-      `• Беременность / Лактация: <b>${p.isPregnant ? 'Да' : 'Нет'}</b>\n\n` +
-      `• <b>Статус следования авторскому протоколу:</b> ${
-        currentUser.on_author_protocol ? '💎 <b>АКТИВЕН (on_author_protocol=true)</b>' : '⚪️ Не активен'
-      }\n` +
-      `• <b>Согласие GDPR:</b> ${
-        currentUser.consent_granted_at ? `✅ Предоставлено (${currentUser.consent_version})` : '❌ Не предоставлено'
-      }\n\n` +
-      '<i>Данные используются супер-ассистентом для проверки межлекарственных взаимодействий (например, железо + цинк).</i>';
+      `<b>👤 МОЙ ПРОФИЛЬ И ПРОГРЕСС</b>\n\n` +
+      `• <b>Пользователь:</b> ${currentUser.first_name} (@${currentUser.username || 'user'})\n` +
+      `• <b>Статус участия в курсе:</b> ${isStarted ? '✅ Курс начат' : '⚪ Режим ознакомления'}\n` +
+      `• <b>Текущий этап:</b> Месяц 1 (ЖКТ и желчеотток)\n` +
+      `• <b>Последний вес:</b> ${lastWeight ? `${lastWeight.weight} кг (${lastWeight.date})` : 'не внесен'}\n\n` +
+      `<i>Вы можете подтвердить или приостановить курс, а также вести дневник веса.</i>`;
+
+    const toggleBtn = isStarted
+      ? {
+          text: '⏸ Приостановить курс',
+          action: () => {
+            toggleAuthorProtocol();
+            addUserMessage('Приостановить курс');
+            setTimeout(() => renderProfileHub(), 150);
+          },
+        }
+      : {
+          text: '✅ Подтвердить начало курса',
+          action: () => {
+            toggleAuthorProtocol();
+            addUserMessage('Подтвердить начало курса');
+            setTimeout(() => renderProfileHub(), 150);
+          },
+          variant: 'success' as const,
+        };
+
+    addBotMessage(text, [
+      toggleBtn,
+      { text: '📊 Дневник веса', action: () => renderWeightDiary() },
+      { text: '🎯 К авторскому курсу', action: () => renderAuthorCourseHub() },
+      getBackButton(),
+    ]);
+  };
+
+  // 7. СВЯЗАТЬСЯ С АВТОРОМ
+  const renderDonDearContactHub = () => {
+    addUserMessage('📩 Связаться с @DonDearOfficina');
+    const text =
+      `📩 <b>СВЯЗЬ С АВТОРОМ КУРСА</b>\n\n` +
+      `Автор курса — дипломированный провизор-химик <b>@DonDearOfficina</b>.\n\n` +
+      `Консультации и разбор индивидуальных нюансов здоровья ведутся лично:\n` +
+      `👉 <b><a href="https://t.me/DonDearOfficina">@DonDearOfficina</a></b> (t.me/DonDearOfficina)\n\n` +
+      `<i>(В боте отключены генерации AI в целях безопасности пациентов. Все рекомендации обсуждаются лично.)</i>`;
 
     addBotMessage(text, [
       {
-        text: currentUser.on_author_protocol ? 'Отключить авторский протокол' : '💎 Следовать авторскому протоколу',
-        action: () => {
-          toggleAuthorProtocol();
-          addUserMessage('Переключить флаг авторского протокола');
-          setTimeout(() => renderProfileHub(), 200);
-        },
-      },
-      {
-        text: currentUser.consent_granted_at ? 'Отозвать согласие GDPR' : 'Дать согласие GDPR',
-        action: () => {
-          if (currentUser.consent_granted_at) {
-            revokeConsent();
-            addUserMessage('Отозвать согласие');
-          } else {
-            grantConsent();
-            addUserMessage('Предоставить согласие');
-          }
-          setTimeout(() => renderProfileHub(), 200);
-        },
-        variant: currentUser.consent_granted_at ? 'danger' : 'success',
+        text: '👉 Открыть чат t.me/DonDearOfficina',
+        action: () => window.open('https://t.me/DonDearOfficina', '_blank'),
+        variant: 'success',
       },
       getBackButton(),
     ]);
   };
 
-  // Handle Free-Text Messages
+  // Free text message handling
   const handleSendMessage = () => {
     if (!inputText.trim()) return;
     const text = inputText.trim();
     setInputText('');
+    addUserMessage(text);
 
+    // 1. Slash commands
     if (text.startsWith('/start')) {
-      const parts = text.split(' ');
-      handleStartCommand(parts[1]);
+      handleStartCommand(text.split(' ')[1]);
       return;
     }
-
     if (text.toLowerCase() === '/menu' || text.toLowerCase() === 'меню') {
       returnToMainMenu();
       return;
     }
 
-    // Default route: route free-text straight into Super-Assistant
-    handleAskAssistant(text);
+    // 2. Red flags check
+    const lower = text.toLowerCase();
+    if (RED_FLAGS.some((rf) => lower.includes(rf))) {
+      addBotMessage(
+        `🚨 <b>ВНИМАНИЕ: ВОЗМОЖНО НЕОТЛОЖНОЕ СОСТОЯНИЕ</b>\n\n` +
+          `Описанные вами симптомы могут требовать неотложной медицинской помощи.\n\n` +
+          `Пожалуйста, немедленно свяжитесь со службой скорой помощи: <b>103</b> или <b>112</b>!\n\n` +
+          `<i>Бот и автор не заменяют экстренную медицинскую службу.</i>`,
+        [getBackButton()],
+        true
+      );
+      return;
+    }
+
+    // 3. Weight logging (e.g. 82.5 or /weight 82.5)
+    const weightMatch = text.match(/^\/weight\s+([0-9]+([.,][0-9]+)?)/i) || text.match(/^([0-9]{2,3}([.,][0-9]+)?)$/);
+    if (weightMatch) {
+      const val = parseFloat((weightMatch[1] || weightMatch[0]).replace(',', '.'));
+      if (val >= 30 && val <= 300) {
+        const today = new Date().toLocaleDateString('ru-RU');
+        setWeightList((prev) => [{ date: today, weight: val }, ...prev]);
+        addBotMessage(
+          `⚖️ <b>Запись веса сохранена: ${val} кг</b>\n\nДата: ${today}\nЗапись сохранена в вашем дневнике веса.`,
+          [
+            { text: '📊 Открыть дневник веса', action: () => renderWeightDiary() },
+            getBackButton(),
+          ]
+        );
+        return;
+      }
+    }
+
+    // 4. Default: Polite direct route to author
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      addBotMessage(
+        `📩 <b>Обращение к автору курса</b>\n\n` +
+          `По всем индивидуальным вопросам, подбору добавок и анализам вы можете написать лично автору курса в Telegram:\n\n` +
+          `👉 <b><a href="https://t.me/DonDearOfficina">@DonDearOfficina</a></b>\n\n` +
+          `<i>(Бот не использует автоматические генерации ответов. Консультации ведет лично автор.)</i>`,
+        [
+          {
+            text: '👉 Написать @DonDearOfficina',
+            action: () => window.open('https://t.me/DonDearOfficina', '_blank'),
+            variant: 'success',
+          },
+          { text: '🎯 Авторский курс', action: () => renderAuthorCourseHub() },
+          getBackButton(),
+        ]
+      );
+    }, 300);
   };
 
   const handleSendInstagramDM = (triggerWord: string) => {
     if (!triggerWord.trim()) return;
     const kw = triggerWord.trim().toUpperCase();
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const userMsgId = 'ig-u-' + Date.now();
-    setIgMessages((prev) => [...prev, { id: userMsgId, sender: 'user', text: kw, timestamp: time }]);
+    setIgMessages((prev) => [...prev, { id: 'ig-u-' + Date.now(), sender: 'user', text: kw, timestamp: time }]);
     setIgInput('');
     setIgIsTyping(true);
 
-    const res = triggerFunnel('instagram', kw, currentUser.username || 'user', currentUser.first_name);
+    let startParam = 'course';
+    if (kw.includes('ЖКТ') || kw.includes('ВОДА')) startParam = 'water';
+    if (kw.includes('ПОХУДЕНИЕ') || kw.includes('ЖИР')) startParam = 'nutrition';
 
     setTimeout(() => {
       setIgIsTyping(false);
-      const stage = res.stage || funnelStages[0];
       setIgMessages((prev) => [
         ...prev,
         {
           id: 'ig-d-' + Date.now(),
           sender: 'dondear',
-          text: stage.body,
+          text:
+            `Здравствуйте! Авторские материалы по теме «${kw}» доступны в нашем Telegram-боте:\n\n` +
+            `Каскадная программа: ЖКТ ➔ Нейробуст ➔ Фенотропил.\n` +
+            `По личным вопросам: @DonDearOfficina`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           leadMagnet: {
-            title: stage.title,
-            description: stage.lead_magnet_name || 'Персональный гайд от дипломированного провизора',
-            pdfName: stage.lead_magnet_name || 'Гайд_буст_DonDearOfficina.pdf',
-            ctaText: stage.cta_text || '🚀 Открыть в боте @DonDearOfficinaAI',
-            startArg: `ig_${kw.toLowerCase()}`,
+            title: `🎯 Материалы по запросу [${kw}]`,
+            description: 'Официальный протокол и регламент этапов от дипломированного провизора.',
+            pdfName: 'Авторский_курс_DonDearOfficina.pdf',
+            ctaText: '🚀 Открыть в Telegram @DonDearOfficina_bot',
+            startArg: startParam,
           },
         },
       ]);
-    }, 450);
+    }, 350);
   };
 
   const bridgeFromInstagramToTelegram = (startArg: string) => {
@@ -1259,19 +816,17 @@ export const TelegramBotSimulator: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-full gap-6">
-      {/* Left Column: Authentic Smartphone Frame with Channel Switcher */}
-      <div className="w-full lg:w-[480px] flex-shrink-0 flex flex-col items-center">
+      {/* Left Column: Authentic Smartphone Frame */}
+      <div className="w-full lg:w-[460px] flex-shrink-0 flex flex-col items-center">
         {/* Channel Switcher */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-900 rounded-2xl border border-slate-800 mb-3 w-full max-w-[420px]">
           <button
             onClick={() => setSimChannel('telegram')}
             className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-              simChannel === 'telegram'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+              simChannel === 'telegram' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
-            <span>📱 Telegram-бот @DonDearOfficinaAI</span>
+            <span>📱 Telegram: @DonDearOfficina_bot</span>
           </button>
           <button
             onClick={() => setSimChannel('instagram')}
@@ -1281,7 +836,7 @@ export const TelegramBotSimulator: React.FC = () => {
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <span>📸 Instagram Direct (Воронка)</span>
+            <span>📸 Instagram Direct</span>
           </button>
         </div>
 
@@ -1311,10 +866,10 @@ export const TelegramBotSimulator: React.FC = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h3 className="font-bold text-sm text-white">@DonDearOfficinaAI</h3>
+                      <h3 className="font-bold text-sm text-white">@DonDearOfficina_bot</h3>
                       <Award className="w-3.5 h-3.5 text-cyan-400" />
                     </div>
-                    <p className="text-[11px] text-cyan-400 font-medium">Дипломированный провизор • Gemini AI</p>
+                    <p className="text-[11px] text-cyan-400 font-medium">Дипломированный провизор • Авторский курс</p>
                   </div>
                 </div>
                 <button
@@ -1349,7 +904,7 @@ export const TelegramBotSimulator: React.FC = () => {
                       <div className="text-[10px] text-right mt-1 opacity-60">{msg.timestamp}</div>
                     </div>
 
-                    {/* Inline Buttons attached to message */}
+                    {/* Inline Buttons */}
                     {msg.buttons && msg.buttons.length > 0 && (
                       <div className="w-[88%] mt-2 space-y-1.5">
                         {msg.buttons.map((btn, bIdx) => {
@@ -1382,7 +937,7 @@ export const TelegramBotSimulator: React.FC = () => {
 
                 {isTyping && (
                   <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/60 rounded-2xl w-28 text-slate-400 text-xs">
-                    <span className="text-[10px] text-cyan-400 font-semibold mr-1">Gemini AI</span>
+                    <span className="text-[10px] text-cyan-400 font-semibold mr-1">Печатает</span>
                     <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce" />
                     <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce [animation-delay:0.2s]" />
                     <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce [animation-delay:0.4s]" />
@@ -1399,7 +954,7 @@ export const TelegramBotSimulator: React.FC = () => {
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Спросите супер-ассистента..."
+                    placeholder="Сообщение автору или вес (напр. 82.5)..."
                     className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
                   />
                   <button
@@ -1411,7 +966,7 @@ export const TelegramBotSimulator: React.FC = () => {
                   </button>
                 </div>
                 <div className="flex justify-between items-center px-2 pt-1 text-[11px] text-slate-500">
-                  <span>Модель: Gemini 3.8 Flash</span>
+                  <span>Автор: @DonDearOfficina</span>
                   <button onClick={() => handleStartCommand()} className="text-cyan-400 hover:underline">
                     /start
                   </button>
@@ -1421,7 +976,7 @@ export const TelegramBotSimulator: React.FC = () => {
           ) : (
             /* INSTAGRAM DIRECT INTERFACE */
             <>
-              {/* Instagram Direct Header */}
+              {/* Instagram Header */}
               <div className="bg-gradient-to-r from-slate-900 via-purple-950/40 to-slate-900 rounded-2xl px-4 py-2.5 flex items-center justify-between border border-purple-800/40 mb-2">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 flex items-center justify-center">
@@ -1436,35 +991,33 @@ export const TelegramBotSimulator: React.FC = () => {
                         ✓
                       </div>
                     </div>
-                    <p className="text-[10px] text-slate-400">Дипломированный провизор • Direct</p>
+                    <p className="text-[10px] text-slate-400">Дипломированный провизор-химик</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30">
-                  Автоворонка
+                  Direct Webhook
                 </span>
               </div>
 
-              {/* Quick Trigger Chips */}
+              {/* Trigger Chips */}
               <div className="px-2 pb-2">
-                <p className="text-[10px] text-slate-400 mb-1 flex items-center justify-between">
-                  <span>Нажмите триггер или отправьте слово:</span>
-                  <span className="text-pink-400 font-mono">Instant Reply</span>
+                <p className="text-[10px] text-slate-400 mb-1">
+                  Нажмите триггер или отправьте слово:
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  {funnelTriggers.map((tr) => (
+                  {['КУРС', 'ЖКТ', 'ВОДА', 'ПОХУДЕНИЕ', 'СТЕК'].map((kw) => (
                     <button
-                      key={tr.id}
-                      onClick={() => handleSendInstagramDM(tr.keyword)}
-                      className="px-2.5 py-1 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 border border-purple-700/50 text-[11px] font-semibold text-purple-200 transition active:scale-95 flex items-center gap-1"
+                      key={kw}
+                      onClick={() => handleSendInstagramDM(kw)}
+                      className="px-2.5 py-1 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 border border-purple-700/50 text-[11px] font-semibold text-purple-200 transition active:scale-95"
                     >
-                      <span>💬</span>
-                      <span>{tr.keyword}</span>
+                      {kw}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Instagram Messages Feed */}
+              {/* Instagram Messages */}
               <div className="flex-1 overflow-y-auto px-2 space-y-3 pr-1 text-sm scrollbar-thin scrollbar-thumb-slate-700">
                 {igMessages.map((msg) => (
                   <div
@@ -1482,21 +1035,17 @@ export const TelegramBotSimulator: React.FC = () => {
                       <div className="text-[9px] text-right mt-1 opacity-50">{msg.timestamp}</div>
                     </div>
 
-                    {/* Lead Magnet CTA Card */}
                     {msg.leadMagnet && (
                       <div className="w-[88%] mt-2 p-3 bg-gradient-to-br from-slate-800 to-purple-950/50 rounded-2xl border border-purple-500/40 shadow-lg">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-base">📄</span>
-                          <span className="text-xs font-bold text-white leading-tight">
-                            {msg.leadMagnet.pdfName}
-                          </span>
+                        <div className="text-xs font-bold text-white mb-1">
+                          {msg.leadMagnet.title}
                         </div>
-                        <p className="text-[11px] text-slate-300 mb-2.5 leading-snug">
+                        <p className="text-[11px] text-slate-300 mb-2 leading-snug">
                           {msg.leadMagnet.description}
                         </p>
                         <button
                           onClick={() => bridgeFromInstagramToTelegram(msg.leadMagnet!.startArg)}
-                          className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md transition flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                          className="w-full py-2 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md transition flex items-center justify-center gap-1.5"
                         >
                           <span>{msg.leadMagnet.ctaText}</span>
                           <ChevronRight className="w-3.5 h-3.5" />
@@ -1505,19 +1054,16 @@ export const TelegramBotSimulator: React.FC = () => {
                     )}
                   </div>
                 ))}
-
                 {igIsTyping && (
-                  <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/60 rounded-2xl w-28 text-slate-400 text-xs">
-                    <span className="text-[10px] text-pink-400 font-semibold mr-1">Direct bot</span>
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/60 rounded-2xl w-24 text-slate-400 text-xs">
                     <span className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce" />
                     <span className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                    <span className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce [animation-delay:0.4s]" />
                   </div>
                 )}
                 <div ref={igChatEndRef} />
               </div>
 
-              {/* Instagram Input Bar */}
+              {/* Instagram Input */}
               <div className="pt-2">
                 <div className="flex items-center gap-2 bg-slate-800/90 rounded-2xl px-3 py-1.5 border border-purple-800/50">
                   <input
@@ -1525,19 +1071,16 @@ export const TelegramBotSimulator: React.FC = () => {
                     value={igInput}
                     onChange={(e) => setIgInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendInstagramDM(igInput)}
-                    placeholder="Напишите в Direct (например, СТЕК)..."
+                    placeholder="Напишите в Direct (КУРС, ВОДА, ПОХУДЕНИЕ)..."
                     className="flex-1 bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none"
                   />
                   <button
                     onClick={() => handleSendInstagramDM(igInput)}
                     disabled={!igInput.trim()}
-                    className="w-8 h-8 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 disabled:opacity-40 text-white flex items-center justify-center transition"
+                    className="w-8 h-8 rounded-xl bg-pink-600 hover:bg-pink-500 disabled:opacity-40 text-white flex items-center justify-center transition"
                   >
                     <Send className="w-4 h-4" />
                   </button>
-                </div>
-                <div className="flex justify-between items-center px-2 pt-1 text-[10px] text-slate-500">
-                  <span>Instagram Graph Webhook ➔ Telegram @DonDearOfficinaAI</span>
                 </div>
               </div>
             </>
@@ -1545,171 +1088,116 @@ export const TelegramBotSimulator: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Column: Interactive Diagnostic & Assistant Controls */}
+      {/* Right Column: Information & Management Console */}
       <div className="flex-1 space-y-5 overflow-y-auto">
-        {/* Auto-Funnel Cross-Platform Station */}
-        <div className="bg-gradient-to-r from-purple-950/40 via-slate-900 to-cyan-950/40 rounded-2xl p-5 border border-purple-500/30 shadow-lg">
+        {/* Course Card Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 rounded-2xl p-5 border border-indigo-500/30 shadow-lg">
           <div className="flex items-start justify-between">
             <div>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-pink-500/20 to-purple-500/20 text-pink-300 border border-pink-500/30 mb-2">
-                <span>🚀</span>
-                <span>Автоворонка: Instagram Direct ➔ Telegram @DonDearOfficinaAI</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mb-2">
+                <Activity className="w-3.5 h-3.5" />
+                <span>Авторская система @DonDearOfficina</span>
               </span>
-              <h2 className="text-lg font-bold text-white">Кросс-платформенная воронка лидогенерации</h2>
-              <p className="text-slate-300 text-xs mt-1">
-                Пользователь пишет кодовое слово в Instagram Direct или комментариях ➔ мгновенная выдача авторского PDF-гайда ➔
-                бесшовный переход в Telegram-бот <b>@DonDearOfficinaAI</b> с автоматическим запуском каскадного онбординга.
+              <h2 className="text-lg font-bold text-white">Единый авторский курс оптимизации нейросистемы</h2>
+              <p className="text-slate-300 text-xs mt-1 leading-relaxed">
+                Каскадный принцип Cause-First: ЖКТ, желчеотток и водный баланс (1-й месяц) ➔
+                Комплекс «Нейробуст» (Глиатилин + Креатин + L-Цитруллин, база от 6 месяцев) ➔
+                Двухмесячный этап с Фенотропилом (3-й и 4-й месяцы).
               </p>
             </div>
-            <button
-              onClick={() => {
-                setSimChannel('instagram');
-                handleSendInstagramDM('СТЕК');
-              }}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white text-xs font-bold transition shadow-md flex items-center gap-1.5 active:scale-95 whitespace-nowrap"
-            >
-              <span>⚡ Тест воронки «СТЕК»</span>
-            </button>
-          </div>
-
-          {/* 4 Pipeline Stages Progress */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-purple-800/40 text-xs">
-            {funnelStages.map((st) => (
-              <div key={st.id} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold text-cyan-400">Шаг {st.step_number}</span>
-                    <span className="text-[9px] text-slate-500">{st.delay_label}</span>
-                  </div>
-                  <h4 className="font-semibold text-slate-200 text-[11px] line-clamp-1">{st.name}</h4>
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{st.title}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Testing Station Header */}
-        <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-5 border border-slate-700">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 mb-2">
-                <Sparkles className="w-3.5 h-3.5" />
-                AI Studio • Gemini 3.8 Flash • Cause-First Каскад
-              </span>
-              <h2 className="text-xl font-bold text-white">Интерактивный научный ассистент @DonDearOfficina</h2>
-              <p className="text-slate-400 text-sm mt-1">
-                Система ищет корневые причины нарушений (ЖКТ ➔ нейромедиаторы ➔ микронутриенты),
-                опирается на PubMed/OpenFDA и строго проверяет взаимодействия с активным стеком.
-              </p>
-            </div>
-
-            <div className="flex flex-col items-end gap-1.5">
-              <span className="text-xs text-slate-400">Пользователь:</span>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-xl border border-slate-700">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-semibold text-slate-200">{currentUser.first_name}</span>
-                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400">
-                  {currentUser.role}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Scenario Buttons */}
-          <div className="mt-4 pt-4 border-t border-slate-700/60 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-            <button
-              onClick={() => handleSelectSection('gastro_month1')}
-              className="px-3 py-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 text-xs font-medium border border-emerald-500/30 flex items-center gap-2 transition"
-            >
-              <Activity className="w-4 h-4 text-emerald-400" />
-              <span>🌿 1-й месяц: Настройка ЖКТ</span>
-            </button>
-            <button
-              onClick={() => handleSelectSection('workout')}
-              className="px-3 py-2 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 text-xs font-medium border border-amber-500/30 flex items-center gap-2 transition"
-            >
-              <Dumbbell className="w-4 h-4 text-amber-400" />
-              <span>🏋️‍♂️ Система тренировок</span>
-            </button>
-            <button
-              onClick={() => handleSelectSection('medications')}
-              className="px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-900 text-cyan-300 text-xs font-medium border border-cyan-500/30 flex items-center gap-2 transition"
-            >
-              <Pill className="w-4 h-4 text-cyan-400" />
-              <span>💊 Моя база препаратов</span>
-            </button>
-            <button
-              onClick={() => handleSelectSection('knowledge')}
-              className="px-3 py-2 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-300 text-xs font-medium border border-indigo-500/30 flex items-center gap-2 transition"
-            >
-              <BookOpen className="w-4 h-4 text-indigo-400" />
-              <span>📚 База знаний</span>
-            </button>
-            <button
-              onClick={() => handleAskAssistant('Хроническая дневная сонливость, упадок энергии и туман в голове')}
-              className="px-3 py-2 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 text-xs font-medium border border-cyan-500/30 flex items-center gap-2 transition"
-            >
-              <Bot className="w-4 h-4 text-cyan-400" />
-              <span>🤖 Тест: Супер-ассистент</span>
-            </button>
-            <button
-              onClick={() => handleAskAssistant('Острая боль в груди, давит за грудиной и онемение руки')}
-              className="px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 text-xs font-medium border border-rose-500/30 flex items-center gap-2 transition"
-            >
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
-              <span>🚨 Тест: Red Flag (112)</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Copyable Assistant Summary Station */}
-        <div className="bg-slate-800/40 rounded-2xl p-5 border border-slate-700/70 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-white text-sm flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-cyan-400" />
-              <span>Краткая выжимка ответа ассистента (для отправки владельцу в Telegram)</span>
-            </h3>
-            <button
-              onClick={() => copyAssistantSummaryToClipboard(lastAssistantSummary)}
-              className="px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs flex items-center gap-1.5 transition"
-            >
-              {copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedSummary ? 'Скопировано!' : 'Копировать'}</span>
-            </button>
-          </div>
-
-          <p className="text-xs text-slate-300 bg-slate-900/70 p-3 rounded-xl border border-slate-700/80 font-mono">
-            {lastAssistantSummary}
-          </p>
-
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Используется для быстрого копирования и пересылки в чат <code>@DonDearOfficina</code>.</span>
             <a
               href="https://t.me/DonDearOfficina"
               target="_blank"
               rel="noreferrer"
-              className="text-cyan-400 hover:underline flex items-center gap-1"
+              className="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap"
             >
-              <span>Открыть диалог t.me/DonDearOfficina</span>
+              <span>Связаться с автором</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-3 border-t border-slate-800 text-xs">
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span className="text-[10px] font-bold text-emerald-400">Этап 1 (1-й месяц)</span>
+              <h4 className="font-semibold text-slate-200 mt-0.5">ЖКТ, желчеотток и вода</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Хофитол, Полисорб (мин 3 нед), Энтерол, Регидрон.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span className="text-[10px] font-bold text-cyan-400">Этап 2 (со 2-го месяца)</span>
+              <h4 className="font-semibold text-slate-200 mt-0.5">Комплекс «Нейробуст»</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Глиатилин + Креатин + L-Цитруллин (длительно 6+ мес).</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span className="text-[10px] font-bold text-amber-400">Этап 3 (3-й и 4-й месяцы)</span>
+              <h4 className="font-semibold text-slate-200 mt-0.5">Этап с Фенотропилом</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Ровно 2 месяца на фоне продолжающейся базы 2-го этапа.</p>
+            </div>
+          </div>
         </div>
 
-        {/* Guidelines & Safety Compliance Matrix */}
+        {/* Quick Testing Shortcuts */}
+        <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-5 border border-slate-700">
+          <h3 className="font-bold text-white text-sm mb-3">Быстрый переход по разделам бота:</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            <button
+              onClick={() => handleSelectSection('author_course')}
+              className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-cyan-300 text-xs font-medium border border-slate-700 flex items-center gap-2 transition"
+            >
+              <Activity className="w-4 h-4 text-cyan-400" />
+              <span>🎯 Авторский курс</span>
+            </button>
+            <button
+              onClick={() => handleSelectSection('nutrition')}
+              className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-amber-300 text-xs font-medium border border-slate-700 flex items-center gap-2 transition"
+            >
+              <Scale className="w-4 h-4 text-amber-400" />
+              <span>⚖️ Похудение и питание</span>
+            </button>
+            <button
+              onClick={() => renderWaterBalanceHub()}
+              className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-sky-300 text-xs font-medium border border-slate-700 flex items-center gap-2 transition"
+            >
+              <Droplets className="w-4 h-4 text-sky-400" />
+              <span>💧 Водный баланс</span>
+            </button>
+            <button
+              onClick={() => handleSelectSection('workout')}
+              className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-emerald-300 text-xs font-medium border border-slate-700 flex items-center gap-2 transition"
+            >
+              <Dumbbell className="w-4 h-4 text-emerald-400" />
+              <span>🏋️ Система тренировок</span>
+            </button>
+            <button
+              onClick={() => handleSelectSection('auxiliary_meds')}
+              className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-indigo-300 text-xs font-medium border border-slate-700 flex items-center gap-2 transition"
+            >
+              <Pill className="w-4 h-4 text-indigo-400" />
+              <span>📦 Каталог БАДов</span>
+            </button>
+            <button
+              onClick={() => {
+                addUserMessage('Острая боль за грудиной');
+                handleSendMessage();
+              }}
+              className="px-3 py-2.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 text-xs font-medium border border-rose-500/30 flex items-center gap-2 transition"
+            >
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <span>🚨 Тест: Экстренный случай</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Safety & Author Contact Card */}
         <div className="p-4 bg-slate-800/30 rounded-2xl border border-slate-700 text-xs text-slate-400 space-y-2">
           <div className="font-semibold text-slate-300 flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Жесткие правила и самопроверка ассистента:</span>
+            <span>Стандарты безопасности и коммуникации:</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div>• <b>Cause-first каскад:</b> ЖКТ ➔ нейромедиаторы ➔ микронутриенты.</div>
-            <div>• <b>PMID/DOI:</b> обязательны для каждого медицинского утверждения.</div>
-            <div>• <b>Уровни доказательности:</b> A–F для каждого предлагаемого действия.</div>
-            <div>• <b>Красные флаги:</b> боль в груди, судороги ➔ 112 + прекращение анализа.</div>
-            <div>• <b>Исламская медицина:</b> религиозный текст — исторический контекст, не efficacy.</div>
-            <div>• <b>Ограничение Telegram API:</b> бот не пишет пользователю первым.</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+            <div>• <b>Личный контакт:</b> Консультации ведет лично автор @DonDearOfficina.</div>
+            <div>• <b>Без AI-галлюцинаций:</b> Генеративные медицинские ассистенты отключены.</div>
+            <div>• <b>Красные флаги:</b> При острой боли/инсульте — немедленная рекомендация 103/112.</div>
+            <div>• <b>Постоянное хранение:</b> Прогресс и дневник веса сохраняются на диске.</div>
           </div>
         </div>
       </div>
